@@ -1,85 +1,95 @@
-﻿using DeviceCreation;
+﻿using DxRender;
 using System.Threading;
 using System.Drawing.Imaging;
 using System;
-using GDI = System.Drawing;
-
-class BitmapSource : IFrameSource, IDisposable
+using System.Drawing;
+namespace DxRender
 {
-
-    //Capture capture = null;
-
-    public BitmapSource()
+    class BitmapSource : IFrameSource, IDisposable
     {
-        buffer = new MemoryBuffer(TestBMP[0].Width, TestBMP[0].Height, 32);
-        //buffer = new MemoryBuffer(1280, 720, 32);
-    }
+        public BitmapSource()
+        {
+            buffer = new MemoryBuffer(TestBMP[0].Width, TestBMP[0].Height, 32);
+        }
 
-    GDI.Bitmap[] TestBMP = 
+        Bitmap[] TestBMP = 
         { 
-            (GDI.Bitmap)GDI.Bitmap.FromFile("bitmap\\01.bmp"), 
-            (GDI.Bitmap)GDI.Bitmap.FromFile("bitmap\\02.bmp"),
-            (GDI.Bitmap)GDI.Bitmap.FromFile("bitmap\\03.bmp") 
+            (Bitmap)Bitmap.FromFile("bitmap\\01.bmp"), 
+            (Bitmap)Bitmap.FromFile("bitmap\\02.bmp"),
+            (Bitmap)Bitmap.FromFile("bitmap\\03.bmp") 
         };
 
-    public readonly object locker = new object();
+        public readonly object locker = new object();
 
-    Thread thread = null;
-    MemoryBuffer buffer = null;
-    public MemoryBuffer VideoBuffer
-    {
-        get { return buffer; }
-    }
+        Thread thread = null;
+        MemoryBuffer buffer = null;
 
-    public event EventHandler FrameRecieved;
-
-    private void OnFrameRecieved()
-    {
-        if (FrameRecieved != null)
-            FrameRecieved(this, new EventArgs());
-    }
-
-    public void Start()
-    {
-        thread = new Thread(() =>
+        MemoryBuffer IFrameSource.VideoBuffer
         {
-            int Counter = 0;
-            while (true)
+            get { return buffer; }
+        }
+
+        public event Action<double> FrameRecieved;
+
+        private void OnFrameRecieved(double Timestamp)
+        {
+            if (FrameRecieved != null)
+                FrameRecieved(Timestamp);
+        }
+
+        System.Diagnostics.Stopwatch stopwatch = new System.Diagnostics.Stopwatch();
+        void IFrameSource.Start()
+        {
+            thread = new Thread(() =>
             {
-                //lock (locker)
+                int Counter = 0;
+                while (true)
                 {
+                    double FPS = 0;
+                    long TimerEllapsed = stopwatch.ElapsedMilliseconds;
+                    stopwatch.Restart();
+                    if (TimerEllapsed > 0)
+                        FPS = 1000.0 / TimerEllapsed;
+
                     Counter++;
                     int index = Counter % TestBMP.Length;
                     CopyIntoBuffer(TestBMP[index]);
 
-                    OnFrameRecieved();
+                    OnFrameRecieved(FPS);
+
+                    Thread.Sleep(16);
+                    //Thread.Sleep(1000/100);
                 }
+            });
 
-                Thread.Sleep(16);
-                //Thread.Sleep(1000/100);
-            }
-        });
+            thread.Start();
+        }
+        void IFrameSource.Pause()
+        { }
 
-        thread.Start();
-    }
+        void IFrameSource.Stop()
+        {
+            this.Dispose();
+        }
 
-    private void CopyIntoBuffer(GDI.Bitmap bitmap)
-    {
-        var map = buffer.Data;
-        BitmapData bits = bitmap.LockBits(new GDI.Rectangle(0, 0, bitmap.Width, bitmap.Height),
-            ImageLockMode.ReadOnly,
-            PixelFormat.Format32bppArgb);
+        private void CopyIntoBuffer(Bitmap bitmap)
+        {
+            var map = buffer.Data;
+            BitmapData bits = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height),
+                ImageLockMode.ReadOnly,
+                PixelFormat.Format32bppArgb);
 
-        NativeMethods.CopyMemory(map.Scan0, bits.Scan0, map.Size);
-        bitmap.UnlockBits(bits);
-    }
+            NativeMethods.CopyMemory(map.Scan0, bits.Scan0, map.Size);
+            bitmap.UnlockBits(bits);
+        }
 
-    public void Dispose()
-    {
-        if (thread != null)
-            thread.Abort();
+        public void Dispose()
+        {
+            if (thread != null)
+                thread.Abort();
 
-        if (VideoBuffer != null)
-            VideoBuffer.Dispose();
+            if (buffer != null)
+                buffer.Dispose();
+        }
     }
 }

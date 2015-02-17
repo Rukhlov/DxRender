@@ -1,17 +1,10 @@
 ﻿
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Collections;
-using System.Runtime.InteropServices;
-using System.Threading;
 using System.Diagnostics;
-
+using System.Runtime.InteropServices;
 using DirectShowLib;
-using DeviceCreation;
 
-
-namespace WebCamService
+namespace DxRender
 {
     internal class CaptureSource : ISampleGrabberCB, IFrameSource, IDisposable
     {
@@ -19,40 +12,59 @@ namespace WebCamService
         #region IFrameSource
 
         private MemoryBuffer buffer = null;
-        public MemoryBuffer VideoBuffer
+        MemoryBuffer IFrameSource.VideoBuffer
         {
             get { return buffer; }
         }
-        public event EventHandler FrameRecieved;
 
-        private void OnFrameRecieved()
+        void IFrameSource.Start()
+        {
+            if (!IsRunning)
+            {
+                int hr = MediaControll.Run();
+                DsError.ThrowExceptionForHR(hr);
+
+                IsRunning = true;
+            }
+        }
+
+        void IFrameSource.Pause()
+        {
+            if (IsRunning)
+            {
+                int hr = MediaControll.Pause();
+                DsError.ThrowExceptionForHR(hr);
+
+                IsRunning = false;
+            }
+        }
+        void IFrameSource.Stop()
+        {
+            CloseInterfaces();
+        }
+
+        public event Action<double> FrameRecieved;
+
+        private void OnFrameRecieved(double Timestamp)
         {
             if (FrameRecieved != null)
-                FrameRecieved(this, new EventArgs());
+                FrameRecieved(Timestamp);
         }
+
         #endregion
 
         private IFilterGraph2 FilterGraph = null;
         private IMediaControl MediaControll = null;
         private bool IsRunning = false;
 
-
-        public CaptureSource()
+        public CaptureSource(int DeviceNum, int FrameRate)
         {
-            Setup(0, 0, 0, 0);
-        }
-        public CaptureSource(int iDeviceNum)
-        {
-            Setup(iDeviceNum, 0, 0, 0);
-        }
-        public CaptureSource(int iDeviceNum, int iFrameRate)
-        {
-            Setup(iDeviceNum, iFrameRate, 0, 0);
+            Setup(DeviceNum, FrameRate, 0, 0);
         }
 
-        public CaptureSource(int iDeviceNum, int iFrameRate, int iWidth, int iHeight)
+        public CaptureSource(int DeviceNum, int FrameRate, int Width, int Height)
         {
-            Setup(iDeviceNum, iFrameRate, iWidth, iHeight);
+            Setup(DeviceNum, FrameRate, Width, Height);
         }
 
         public void Dispose()
@@ -65,43 +77,21 @@ namespace WebCamService
             Dispose();
         }
 
-        public void Start()
-        {
-            if (!IsRunning)
-            {
-                int hr = MediaControll.Run();
-                DsError.ThrowExceptionForHR(hr);
 
-                IsRunning = true;
-            }
-        }
-
-
-        public void Pause()
-        {
-            if (IsRunning)
-            {
-                int hr = MediaControll.Pause();
-                DsError.ThrowExceptionForHR(hr);
-
-                IsRunning = false;
-            }
-        }
-
-        private void Setup(int iDeviceNum, int iFrameRate, int iWidth, int iHeight)
+        private void Setup(int DeviceNum, int FrameRate, int Width, int Height)
         {
             DsDevice[] capDevices;
 
             capDevices = DsDevice.GetDevicesOfCat(FilterCategory.VideoInputDevice);
 
-            if (iDeviceNum + 1 > capDevices.Length)
+            if (DeviceNum + 1 > capDevices.Length)
             {
                 throw new Exception("No video capture devices found at that index!");
             }
 
             try
             {
-                SetupGraph(capDevices[iDeviceNum], iFrameRate, iWidth, iHeight);
+                SetupGraph(capDevices[DeviceNum], FrameRate, Width, Height);
 
                 IsRunning = false;
             }
@@ -208,12 +198,10 @@ namespace WebCamService
             DsUtils.FreeAMMediaType(media);
             media = null;
 
-            // Configure the samplegrabber
             hr = SampleGrabber.SetCallback(this, 1);
             DsError.ThrowExceptionForHR(hr);
         }
 
-        // Set the Framerate, and video size
         private void SetConfigParms(ICaptureGraphBuilder2 CaptureGraphBuilder, IBaseFilter CaptureFilter, int FrameRate, int Width, int Height)
         {
             int hr;
@@ -266,7 +254,6 @@ namespace WebCamService
             media = null;
         }
 
-        /// <summary> Shut down capture </summary>
         private void CloseInterfaces()
         {
             int hr;
@@ -275,7 +262,6 @@ namespace WebCamService
             {
                 if (MediaControll != null)
                 {
-                    // Stop the graph
                     hr = MediaControll.Stop();
                     IsRunning = false;
                 }
@@ -299,16 +285,12 @@ namespace WebCamService
             return 0;
         }
 
-        double PrevTime = 0;
         int ISampleGrabberCB.BufferCB(double SampleTime, IntPtr pBuffer, int BufferLen)
         {
             if (BufferLen <= buffer.Size)
             {           
-                //Debug.WriteLine("{0}", (SampleTime - PrevTime) * 1000);
-                //PrevTime = SampleTime;
-
                 NativeMethods.CopyMemory(buffer.Data.Scan0, pBuffer, buffer.Size);
-                OnFrameRecieved();
+                OnFrameRecieved(SampleTime);
             }
             else
             {

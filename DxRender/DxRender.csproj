@@ -53,6 +53,7 @@
   <ItemGroup>
     <Compile Include="BitmapSource.cs" />
     <Compile Include="CaptureSource.cs" />
+    <Compile Include="CPUCounter.cs" />
     <Compile Include="Program.cs">
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />

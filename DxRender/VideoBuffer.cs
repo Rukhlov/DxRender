@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Diagnostics;
 
-namespace DeviceCreation
+namespace DxRender
 {
     public class MappedData
     {

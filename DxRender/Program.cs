@@ -2,23 +2,25 @@
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+
 using SlimDX;
 using SlimDX.Direct3D9;
 using SlimDX.Windows;
-using WebCamService;
+
 using GDI = System.Drawing;
 
-namespace DeviceCreation
+namespace DxRender
 {
     class Program
     {
         static void Main()
         {
             RenderForm form = new RenderForm("TEST_DX_APP");
+            //Form form = new Form();
             SlimDXPresenter presenter = new SlimDXPresenter();
-            //IFrameSource source = new BitmapSource();
-            CaptureSource source = new CaptureSource(0, 0, 1920, 1080);
-            //CaptureSource source = new CaptureSource(0, 0, 800, 600);
+            //BitmapSource source = new BitmapSource();
+            //CaptureSource source = new CaptureSource(0, 30);
+            CaptureSource source = new CaptureSource(0, 0, 640, 480);
             presenter.Start(form, source);
 
             Application.ApplicationExit += (o, a) =>
@@ -33,8 +35,10 @@ namespace DeviceCreation
     public interface IFrameSource
     {
         void Start();
+        void Pause();
+        void Stop();
         MemoryBuffer VideoBuffer { get; }
-        event EventHandler FrameRecieved; 
+        event Action<double> FrameRecieved; 
     }
 
 
@@ -51,5 +55,11 @@ namespace DeviceCreation
 
         [DllImport("Kernel32.dll", EntryPoint = "RtlMoveMemory")]
         public static extern void CopyMemory(IntPtr destination, IntPtr source, [MarshalAs(UnmanagedType.I4)] int length);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool GetSystemTimes(out System.Runtime.InteropServices.ComTypes.FILETIME lpIdleTime, 
+            out System.Runtime.InteropServices.ComTypes.FILETIME lpKernelTime, 
+            out System.Runtime.InteropServices.ComTypes.FILETIME lpUserTime);
+
     }
 }
