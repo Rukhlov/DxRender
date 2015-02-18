@@ -18,7 +18,7 @@ namespace DxRender
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            Renderer.Draw();
+            Renderer.Draw(false);
         }
         protected override void OnPaintBackground(PaintEventArgs pevent)
         {

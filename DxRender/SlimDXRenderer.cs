@@ -35,6 +35,7 @@ namespace DxRender
         private IntPtr DeviceWindowHandle = IntPtr.Zero;
 
         bool DeviceBusy = false;
+        bool DeviceLost = false;
 
         private int Width = 0;
         private int Height = 0;
@@ -85,6 +86,7 @@ namespace DxRender
             ScreenFont = new Font(GraphicDevice, new System.Drawing.Font("Arial", 30f, System.Drawing.FontStyle.Regular));
 
             BackBufferArea = new GDI.Rectangle(0, 0, PresentParams.BackBufferWidth, PresentParams.BackBufferHeight);
+            DeviceLost = false;
 
             FrameSource.FrameReceived += FrameSource_FrameReceived;
         }
@@ -111,13 +113,32 @@ namespace DxRender
 
         private void FrameSource_FrameReceived(object sender, FrameReceivedEventArgs e)
         {
+            Draw();
+
+            PerfCounter.UpdateStatistic(e.SampleTime);
+        }
+
+        public void Draw(bool UpdateSurface = true)
+        {
             if (GraphicDevice == null) return;
 
-            bool TestCooperative = TestCooperativeLevel();
-
-            if (TestCooperative == false) return;
-
             if (DeviceBusy == true) return;
+
+            var r = GraphicDevice.TestCooperativeLevel();
+            if (r != ResultCode.Success)
+            {
+                if (r == ResultCode.DeviceNotReset)
+                {
+                    CleanUp();
+                    Setup();
+                    UpdateSurface = true;
+                }
+                if (r == ResultCode.DeviceLost)
+                {
+                    DeviceLost = true;
+                    return;
+                }
+            }
 
             try
             {
@@ -125,10 +146,11 @@ namespace DxRender
                 GraphicDevice.Clear(ClearFlags.Target | ClearFlags.ZBuffer, GDI.Color.Black, 1.0f, 0);
 
                 GraphicDevice.BeginScene();
-
-                var data = this.FrameSource.VideoBuffer.Data;
-                CopyToSurface(data.Scan0, data.Size, BackBufferTextureSurface);
-
+                if (UpdateSurface)
+                {
+                    var data = this.FrameSource.VideoBuffer.Data;
+                    CopyToSurface(data.Scan0, data.Size, BackBufferTextureSurface);
+                }
                 SpriteBatch.Begin(SpriteFlags.AlphaBlend);
                 SpriteBatch.Draw(BackBufferTexture, BackBufferArea, GDI.Color.White);
                 ScreenFont.DrawString(SpriteBatch, PerfCounter.GetReport(), 0, 0, GDI.Color.Red);
@@ -137,66 +159,18 @@ namespace DxRender
                 GraphicDevice.EndScene();
 
                 GraphicDevice.Present();
-
             }
-            catch (Exception ex) { }
+            catch (Direct3D9Exception ex)
+            {
+                if (ex.ResultCode == ResultCode.DeviceLost)
+                    DeviceLost = true;
+
+                Debug.WriteLine(ex.Message);
+            }
             finally
             {
                 DeviceBusy = false;
             }
-
-            PerfCounter.UpdateStatistic(e.SampleTime);
-        }
-
-        private bool TestCooperativeLevel()
-        {
-            bool Result = true;
-            var r = GraphicDevice.TestCooperativeLevel();
-            if (r != ResultCode.Success)
-            {
-                Result = false;
-                if (r == ResultCode.DeviceNotReset)
-                {
-                   DisposeDXObjects();
-                    Setup();
-                }
-            }
-
-            return Result;
-        }
-
-        public void Draw()
-        {
-            if (GraphicDevice == null) return;
-
-            bool TestCooperative = TestCooperativeLevel();
-            if (TestCooperative == false) return;
-
-            if (DeviceBusy == true) return;
-
-            try
-            {
-                DeviceBusy = true;
-                GraphicDevice.Clear(ClearFlags.Target | ClearFlags.ZBuffer, GDI.Color.Black, 1.0f, 0);
-
-                Present();
-            }
-            catch (Exception ex) { }
-            finally
-            {
-                DeviceBusy = false;
-            }
-        }
-
-        private void Present()
-        {
-            SpriteBatch.Begin(SpriteFlags.AlphaBlend);
-            SpriteBatch.Draw(BackBufferTexture, BackBufferArea, GDI.Color.White);
-            ScreenFont.DrawString(SpriteBatch, PerfCounter.GetReport(), 0, 0, GDI.Color.Red);
-            SpriteBatch.End();
-
-            GraphicDevice.Present();
-
         }
 
         private void CopyToSurface(IntPtr Ptr, int Size, Surface surface)
@@ -208,58 +182,6 @@ namespace DxRender
             surface.UnlockRectangle();
         }
 
-        public void Dispose()
-        {
-            DisposeDXObjects();
-
-            if (PerfCounter != null)
-                PerfCounter.Dispose();
-        }
-
-        private void DisposeDXObjects()
-        {
-            if (FrameSource != null)
-                FrameSource.FrameReceived -= FrameSource_FrameReceived;
-
-            if (D3D != null)
-            {
-                D3D.Dispose();
-                D3D = null;
-            }
-
-            if (GraphicDevice != null)
-            {
-                GraphicDevice.Dispose();
-                GraphicDevice = null;
-            }
-
-            if (BackBufferTexture != null)
-            {
-                BackBufferTexture.Dispose();
-                BackBufferTexture = null;
-            }
-            if (BackBufferTextureSurface != null)
-            {
-                BackBufferTextureSurface.Dispose();
-                BackBufferTextureSurface = null;
-            }
-            if (OffscreenSurface != null)
-            {
-                OffscreenSurface.Dispose();
-                OffscreenSurface = null;
-            }
-            if (SpriteBatch != null)
-            {
-                SpriteBatch.Dispose();
-                SpriteBatch = null;
-            }
-
-            if (ScreenFont != null)
-            {
-                ScreenFont.Dispose();
-                ScreenFont = null;
-            }
-        }
 
         private void CopyToSurface(Surface surface, GDI.Bitmap bitmap, GDI.Rectangle SurfaceArea)
         {
@@ -311,6 +233,58 @@ namespace DxRender
         }//BitmapToTexture
 
 
+        public void Dispose()
+        {
+            CleanUp();
+
+            if (PerfCounter != null)
+                PerfCounter.Dispose();
+        }
+
+        private void CleanUp()
+        {
+            if (FrameSource != null)
+                FrameSource.FrameReceived -= FrameSource_FrameReceived;
+
+            if (D3D != null)
+            {
+                D3D.Dispose();
+                D3D = null;
+            }
+
+            if (GraphicDevice != null)
+            {
+                GraphicDevice.Dispose();
+                GraphicDevice = null;
+            }
+
+            if (BackBufferTexture != null)
+            {
+                BackBufferTexture.Dispose();
+                BackBufferTexture = null;
+            }
+            if (BackBufferTextureSurface != null)
+            {
+                BackBufferTextureSurface.Dispose();
+                BackBufferTextureSurface = null;
+            }
+            if (OffscreenSurface != null)
+            {
+                OffscreenSurface.Dispose();
+                OffscreenSurface = null;
+            }
+            if (SpriteBatch != null)
+            {
+                SpriteBatch.Dispose();
+                SpriteBatch = null;
+            }
+
+            if (ScreenFont != null)
+            {
+                ScreenFont.Dispose();
+                ScreenFont = null;
+            }
+        }
 
     }
 

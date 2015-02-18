@@ -10,8 +10,8 @@ namespace DxRender
         {
             int CaptureDevice = 0;
             int FrameRate = 30;
-            int Width = 1920; //1280
-            int Height = 1080; //720
+            int Width = 640; //1280
+            int Height = 480; //720
 
             SlimDXRenderer renderer = new SlimDXRenderer();
 
@@ -22,7 +22,7 @@ namespace DxRender
             form.Controls.Add(view);
 
            //IFrameSource source = new BitmapSource();
-            IFrameSource source = new CaptureSource(0, 30, Width, Height);
+            IFrameSource source = new CaptureSource(CaptureDevice, FrameRate, Width, Height);
 
 
             view.KeyDown += (o, e) =>
