@@ -11,6 +11,7 @@ using GDI = System.Drawing;
 
 using System.Windows.Forms;
 using System.Diagnostics;
+using System.Threading;
 
 namespace DxRender
 {
@@ -26,6 +27,8 @@ namespace DxRender
         private Surface OffscreenSurface;
         private Font ScreenFont;
 
+        private Direct3D D3D = null;
+
         private PerfCounter PerfCounter = null;
 
         private IFrameSource FrameSource = null;
@@ -33,31 +36,29 @@ namespace DxRender
 
         bool DeviceBusy = false;
 
-        public void Start(IntPtr Handle, IFrameSource FrameSource)
+        private int Width = 0;
+        private int Height = 0;
+
+        public void Setup(IntPtr Handle, IFrameSource FrameSource)
         {
             this.DeviceWindowHandle = Handle;
             this.FrameSource = FrameSource;
+            this.Width = FrameSource.VideoBuffer.Width;
+            this.Height = FrameSource.VideoBuffer.Height;
 
             PerfCounter = new DxRender.PerfCounter();
 
-            PresentParams = new PresentParameters();
-            PresentParams.SwapEffect = SwapEffect.Discard;
-            PresentParams.DeviceWindowHandle = DeviceWindowHandle;
-            PresentParams.Windowed = true;
-            PresentParams.BackBufferWidth = FrameSource.VideoBuffer.Width;
-            PresentParams.BackBufferHeight = FrameSource.VideoBuffer.Height;
+            Setup();
+        }
 
-            PresentParams.BackBufferFormat = Format.A8R8G8B8;
-            PresentParams.AutoDepthStencilFormat = Format.D16;
-            PresentParams.Multisample = MultisampleType.None;
-            PresentParams.MultisampleQuality = 0;
-            PresentParams.PresentationInterval = PresentInterval.One;
-            PresentParams.PresentFlags = PresentFlags.Video;
+        private void Setup()
+        {
+            PresentParams = CreatePresentParameters();
 
-            GraphicDevice = new Device(new Direct3D(), 0, DeviceType.Hardware,
+            D3D = new Direct3D();
+            GraphicDevice = new Device(D3D, 0, DeviceType.Hardware,
                 DeviceWindowHandle, CreateFlags.Multithreaded | CreateFlags.FpuPreserve | CreateFlags.HardwareVertexProcessing,
                 PresentParams);
-
 
             SpriteBatch = new Sprite(GraphicDevice);
 
@@ -75,30 +76,46 @@ namespace DxRender
 
             BackBufferTextureSurface = BackBufferTexture.GetSurfaceLevel(0);
 
-
             OffscreenSurface = Surface.CreateOffscreenPlain(GraphicDevice,
                 PresentParams.BackBufferWidth,
                 PresentParams.BackBufferHeight,
                 PresentParams.BackBufferFormat,
                 Pool.Default);
 
-
             ScreenFont = new Font(GraphicDevice, new System.Drawing.Font("Arial", 30f, System.Drawing.FontStyle.Regular));
 
             BackBufferArea = new GDI.Rectangle(0, 0, PresentParams.BackBufferWidth, PresentParams.BackBufferHeight);
 
-            this.FrameSource.FrameReceived += new EventHandler<FrameReceivedEventArgs>(FrameSource_FrameReceived);
+            FrameSource.FrameReceived += FrameSource_FrameReceived;
+        }
 
-            this.FrameSource.Start();
+        private PresentParameters CreatePresentParameters()
+        {
+            PresentParameters parameters = new PresentParameters();
 
+            parameters.SwapEffect = SwapEffect.Discard;
+            parameters.DeviceWindowHandle = DeviceWindowHandle;
+            parameters.Windowed = true;
+            parameters.BackBufferWidth = Width;
+            parameters.BackBufferHeight = Height;
+
+            parameters.BackBufferFormat = Format.A8R8G8B8;
+            parameters.AutoDepthStencilFormat = Format.D16;
+            parameters.Multisample = MultisampleType.None;
+            parameters.MultisampleQuality = 0;
+            parameters.PresentationInterval = PresentInterval.One;
+            parameters.PresentFlags = PresentFlags.Video;
+
+            return parameters;
         }
 
         private void FrameSource_FrameReceived(object sender, FrameReceivedEventArgs e)
         {
             if (GraphicDevice == null) return;
 
-            var r = GraphicDevice.TestCooperativeLevel();
-            if (r != ResultCode.Success) return;
+            bool TestCooperative = TestCooperativeLevel();
+
+            if (TestCooperative == false) return;
 
             if (DeviceBusy == true) return;
 
@@ -106,7 +123,7 @@ namespace DxRender
             {
                 DeviceBusy = true;
                 GraphicDevice.Clear(ClearFlags.Target | ClearFlags.ZBuffer, GDI.Color.Black, 1.0f, 0);
-                
+
                 GraphicDevice.BeginScene();
 
                 var data = this.FrameSource.VideoBuffer.Data;
@@ -120,7 +137,9 @@ namespace DxRender
                 GraphicDevice.EndScene();
 
                 GraphicDevice.Present();
+
             }
+            catch (Exception ex) { }
             finally
             {
                 DeviceBusy = false;
@@ -129,12 +148,29 @@ namespace DxRender
             PerfCounter.UpdateStatistic(e.SampleTime);
         }
 
+        private bool TestCooperativeLevel()
+        {
+            bool Result = true;
+            var r = GraphicDevice.TestCooperativeLevel();
+            if (r != ResultCode.Success)
+            {
+                Result = false;
+                if (r == ResultCode.DeviceNotReset)
+                {
+                   DisposeDXObjects();
+                    Setup();
+                }
+            }
+
+            return Result;
+        }
+
         public void Draw()
         {
             if (GraphicDevice == null) return;
 
-            var r = GraphicDevice.TestCooperativeLevel();
-            if (r != ResultCode.Success) return;
+            bool TestCooperative = TestCooperativeLevel();
+            if (TestCooperative == false) return;
 
             if (DeviceBusy == true) return;
 
@@ -145,6 +181,7 @@ namespace DxRender
 
                 Present();
             }
+            catch (Exception ex) { }
             finally
             {
                 DeviceBusy = false;
@@ -159,6 +196,7 @@ namespace DxRender
             SpriteBatch.End();
 
             GraphicDevice.Present();
+
         }
 
         private void CopyToSurface(IntPtr Ptr, int Size, Surface surface)
@@ -172,14 +210,55 @@ namespace DxRender
 
         public void Dispose()
         {
+            DisposeDXObjects();
+
+            if (PerfCounter != null)
+                PerfCounter.Dispose();
+        }
+
+        private void DisposeDXObjects()
+        {
+            if (FrameSource != null)
+                FrameSource.FrameReceived -= FrameSource_FrameReceived;
+
+            if (D3D != null)
+            {
+                D3D.Dispose();
+                D3D = null;
+            }
+
             if (GraphicDevice != null)
             {
                 GraphicDevice.Dispose();
                 GraphicDevice = null;
             }
 
-            if (PerfCounter != null)
-                PerfCounter.Dispose();
+            if (BackBufferTexture != null)
+            {
+                BackBufferTexture.Dispose();
+                BackBufferTexture = null;
+            }
+            if (BackBufferTextureSurface != null)
+            {
+                BackBufferTextureSurface.Dispose();
+                BackBufferTextureSurface = null;
+            }
+            if (OffscreenSurface != null)
+            {
+                OffscreenSurface.Dispose();
+                OffscreenSurface = null;
+            }
+            if (SpriteBatch != null)
+            {
+                SpriteBatch.Dispose();
+                SpriteBatch = null;
+            }
+
+            if (ScreenFont != null)
+            {
+                ScreenFont.Dispose();
+                ScreenFont = null;
+            }
         }
 
         private void CopyToSurface(Surface surface, GDI.Bitmap bitmap, GDI.Rectangle SurfaceArea)
