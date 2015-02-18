@@ -14,13 +14,14 @@ namespace DxRender
     {
         public PerfCounter()
         {
-            stopwatch = new System.Diagnostics.Stopwatch();
+            stopwatch = new Stopwatch();
             counter = new CPUCounter();
 
             timer = new Timer((o) =>
             {
                 CPU = counter.GetUsage();
-            }, null, 0, 1000);
+            }, 
+            null, 0, 1000);
 
         }
         private double FPS = 0;
@@ -28,7 +29,6 @@ namespace DxRender
         private short CPU = 0;
 
         private CPUCounter counter = null;
-
         private Timer timer = null;       
         private Stopwatch stopwatch = null;
 
@@ -43,7 +43,7 @@ namespace DxRender
 
             double SampleTimeEllapsed = SampleTime - PrevSampleTime;
             if(SampleTimeEllapsed>0)
-                FPS2 = 1.0/ SampleTimeEllapsed;
+                FPS2 = 1.0 /SampleTimeEllapsed;
             PrevSampleTime = SampleTime;
         }
 
@@ -55,10 +55,19 @@ namespace DxRender
         public void Dispose()
         {
             if (timer != null)
+            {
                 timer.Dispose();
+                timer = null;
+            }
+            if (counter != null)
+            {
+                counter.Dispose();
+                counter = null;
+            }
+
         }
 
-        class CPUCounter
+        class CPUCounter:IDisposable
         {
 
             FILETIME _prevSysKernel;
@@ -161,7 +170,17 @@ namespace DxRender
                     return (_lastRun == DateTime.MinValue);
                 }
             }
+
+            public void Dispose()
+            {
+                if (process != null)
+                {
+                    process.Dispose();
+                    process = null;
+                }
+            }
         }
+
     }
 
 }

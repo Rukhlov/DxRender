@@ -34,21 +34,27 @@ namespace DxRender
             {
                 int hr = MediaControll.Pause();
                 DsError.ThrowExceptionForHR(hr);
-
                 IsRunning = false;
             }
+            else
+            {
+                int hr = MediaControll.Run();
+                DsError.ThrowExceptionForHR(hr);
+                IsRunning = true;
+            }
+
         }
         void IFrameSource.Stop()
         {
             CloseInterfaces();
         }
 
-        public event Action<double> FrameRecieved;
+        public event EventHandler<FrameReceivedEventArgs> FrameReceived;
 
-        private void OnFrameRecieved(double Timestamp)
+        private void OnFrameReceived(double Timestamp)
         {
-            if (FrameRecieved != null)
-                FrameRecieved(Timestamp);
+            if (FrameReceived != null)
+                FrameReceived(this, new FrameReceivedEventArgs {SampleTime=Timestamp});
         }
 
         #endregion
@@ -56,11 +62,6 @@ namespace DxRender
         private IFilterGraph2 FilterGraph = null;
         private IMediaControl MediaControll = null;
         private bool IsRunning = false;
-
-        public CaptureSource(int DeviceNum, int FrameRate)
-        {
-            Setup(DeviceNum, FrameRate, 0, 0);
-        }
 
         public CaptureSource(int DeviceNum, int FrameRate, int Width, int Height)
         {
@@ -290,7 +291,7 @@ namespace DxRender
             if (BufferLen <= buffer.Size)
             {           
                 NativeMethods.CopyMemory(buffer.Data.Scan0, pBuffer, buffer.Size);
-                OnFrameRecieved(SampleTime);
+                OnFrameReceived(SampleTime);
             }
             else
             {

@@ -29,33 +29,28 @@ namespace DxRender
             get { return buffer; }
         }
 
-        public event Action<double> FrameRecieved;
+        public event EventHandler<FrameReceivedEventArgs> FrameReceived;
 
-        private void OnFrameRecieved(double Timestamp)
+        private void OnFrameReceived(double Timestamp)
         {
-            if (FrameRecieved != null)
-                FrameRecieved(Timestamp);
+            if (FrameReceived != null)
+                FrameReceived(this, new FrameReceivedEventArgs { SampleTime = Timestamp });
         }
 
         System.Diagnostics.Stopwatch stopwatch = new System.Diagnostics.Stopwatch();
         void IFrameSource.Start()
         {
+            stopwatch.Restart();
             thread = new Thread(() =>
             {
                 int Counter = 0;
                 while (true)
                 {
-                    double FPS = 0;
-                    long TimerEllapsed = stopwatch.ElapsedMilliseconds;
-                    stopwatch.Restart();
-                    if (TimerEllapsed > 0)
-                        FPS = 1000.0 / TimerEllapsed;
-
                     Counter++;
                     int index = Counter % TestBMP.Length;
                     CopyIntoBuffer(TestBMP[index]);
 
-                    OnFrameRecieved(FPS);
+                    OnFrameReceived(stopwatch.ElapsedMilliseconds/1000.0);
 
                     Thread.Sleep(16);
                     //Thread.Sleep(1000/100);

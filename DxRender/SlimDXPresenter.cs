@@ -14,7 +14,7 @@ using System.Diagnostics;
 
 namespace DxRender
 {
-    class SlimDXPresenter : IDisposable
+    class SlimDXRenderer : IDisposable
     {
         private Device GraphicDevice = null;
         private PresentParameters PresentParams = null;
@@ -28,19 +28,24 @@ namespace DxRender
 
         private PerfCounter PerfCounter = null;
 
-        public void Start(Form form, IFrameSource source)
-        {
-            PerfCounter = new DxRender.PerfCounter();
+        private IFrameSource FrameSource = null;
+        private IntPtr DeviceWindowHandle = IntPtr.Zero;
 
-            form.Height = source.VideoBuffer.Height;
-            form.Width = source.VideoBuffer.Width;
+        bool DeviceBusy = false;
+
+        public void Start(IntPtr Handle, IFrameSource FrameSource)
+        {
+            this.DeviceWindowHandle = Handle;
+            this.FrameSource = FrameSource;
+
+            PerfCounter = new DxRender.PerfCounter();
 
             PresentParams = new PresentParameters();
             PresentParams.SwapEffect = SwapEffect.Discard;
-            PresentParams.DeviceWindowHandle = form.Handle;
+            PresentParams.DeviceWindowHandle = DeviceWindowHandle;
             PresentParams.Windowed = true;
-            PresentParams.BackBufferWidth = source.VideoBuffer.Width;
-            PresentParams.BackBufferHeight = source.VideoBuffer.Height;
+            PresentParams.BackBufferWidth = FrameSource.VideoBuffer.Width;
+            PresentParams.BackBufferHeight = FrameSource.VideoBuffer.Height;
 
             PresentParams.BackBufferFormat = Format.A8R8G8B8;
             PresentParams.AutoDepthStencilFormat = Format.D16;
@@ -50,10 +55,14 @@ namespace DxRender
             PresentParams.PresentFlags = PresentFlags.Video;
 
             GraphicDevice = new Device(new Direct3D(), 0, DeviceType.Hardware,
-                form.Handle, CreateFlags.Multithreaded | CreateFlags.FpuPreserve | CreateFlags.HardwareVertexProcessing,
+                DeviceWindowHandle, CreateFlags.Multithreaded | CreateFlags.FpuPreserve | CreateFlags.HardwareVertexProcessing,
                 PresentParams);
 
-            SpriteBatch = new SlimDX.Direct3D9.Sprite(GraphicDevice);
+
+            SpriteBatch = new Sprite(GraphicDevice);
+
+            //SpriteBatch.Transform = Matrix.RotationZ(0.5f);
+            //GraphicDevice.SetTransform(TransformState.Projection, Matrix.RotationZ(0.5f));
 
             BackBufferTexture = new Texture(GraphicDevice,
                 PresentParams.BackBufferWidth,
@@ -78,48 +87,78 @@ namespace DxRender
 
             BackBufferArea = new GDI.Rectangle(0, 0, PresentParams.BackBufferWidth, PresentParams.BackBufferHeight);
 
-            form.KeyDown += (o, e) =>
+            this.FrameSource.FrameReceived += new EventHandler<FrameReceivedEventArgs>(FrameSource_FrameReceived);
+
+            this.FrameSource.Start();
+
+        }
+
+        private void FrameSource_FrameReceived(object sender, FrameReceivedEventArgs e)
+        {
+            if (GraphicDevice == null) return;
+
+            var r = GraphicDevice.TestCooperativeLevel();
+            if (r != ResultCode.Success) return;
+
+            if (DeviceBusy == true) return;
+
+            try
             {
-                if (e.KeyCode == Keys.Escape)
-                    form.Close();
-
-                if (e.Alt && e.KeyCode == Keys.Enter)
-                { }
-            };
-
-            form.FormClosing += (o, e) =>
-            {
-                if (source != null)
-                    source.Stop();
-            };
-
-            source.FrameRecieved += (timestamp) =>
-            {
-                if (GraphicDevice == null) return;
-
-                var r = GraphicDevice.TestCooperativeLevel();
-                if (r != ResultCode.Success) return;
-
+                DeviceBusy = true;
                 GraphicDevice.Clear(ClearFlags.Target | ClearFlags.ZBuffer, GDI.Color.Black, 1.0f, 0);
+                
                 GraphicDevice.BeginScene();
 
-                var data = source.VideoBuffer.Data;
+                var data = this.FrameSource.VideoBuffer.Data;
                 CopyToSurface(data.Scan0, data.Size, BackBufferTextureSurface);
 
                 SpriteBatch.Begin(SpriteFlags.AlphaBlend);
-                SpriteBatch.Draw(BackBufferTexture, BackBufferArea, new Color4(1, 1, 1, 1));
+                SpriteBatch.Draw(BackBufferTexture, BackBufferArea, GDI.Color.White);
                 ScreenFont.DrawString(SpriteBatch, PerfCounter.GetReport(), 0, 0, GDI.Color.Red);
                 SpriteBatch.End();
-                //...
+
                 GraphicDevice.EndScene();
 
                 GraphicDevice.Present();
+            }
+            finally
+            {
+                DeviceBusy = false;
+            }
 
-                PerfCounter.UpdateStatistic(timestamp);
-            };
+            PerfCounter.UpdateStatistic(e.SampleTime);
+        }
 
-            source.Start();
+        public void Draw()
+        {
+            if (GraphicDevice == null) return;
 
+            var r = GraphicDevice.TestCooperativeLevel();
+            if (r != ResultCode.Success) return;
+
+            if (DeviceBusy == true) return;
+
+            try
+            {
+                DeviceBusy = true;
+                GraphicDevice.Clear(ClearFlags.Target | ClearFlags.ZBuffer, GDI.Color.Black, 1.0f, 0);
+
+                Present();
+            }
+            finally
+            {
+                DeviceBusy = false;
+            }
+        }
+
+        private void Present()
+        {
+            SpriteBatch.Begin(SpriteFlags.AlphaBlend);
+            SpriteBatch.Draw(BackBufferTexture, BackBufferArea, GDI.Color.White);
+            ScreenFont.DrawString(SpriteBatch, PerfCounter.GetReport(), 0, 0, GDI.Color.Red);
+            SpriteBatch.End();
+
+            GraphicDevice.Present();
         }
 
         private void CopyToSurface(IntPtr Ptr, int Size, Surface surface)
