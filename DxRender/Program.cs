@@ -10,32 +10,14 @@ namespace DxRender
         {
             int CaptureDevice = 0;
             int FrameRate = 30;
-            int Width = 640; //1280
-            int Height = 480; //720
-
-            SlimDXRenderer renderer = new SlimDXRenderer();
-
-            //RenderForm form = new RenderForm("TEST_DX_APP");
-            Form form = new Form { Width = Width, Height = Height };
-            PlotView view = new PlotView(renderer) { Dock = DockStyle.Fill };
-
-            form.Controls.Add(view);
-
-           //IFrameSource source = new BitmapSource();
+            int Width = 1280;
+            int Height = 720;
+            //IFrameSource source = new BitmapSource();
             IFrameSource source = new CaptureSource(CaptureDevice, FrameRate, Width, Height);
+            RenderControl control = new RenderControl(source, RenderMode.SlimDX) { Dock = DockStyle.Fill };
 
-
-            view.KeyDown += (o, e) =>
-            {
-                if (e.KeyCode == Keys.Escape)
-                    form.Close();
-
-                if (e.KeyCode == Keys.Space)
-                {
-                    if (source != null)
-                        source.Pause();
-                }
-            };
+            Form form = new Form { Width = Width, Height = Height };
+            form.Controls.Add(control);
 
             form.FormClosing += (o, e) =>
             {
@@ -43,19 +25,50 @@ namespace DxRender
                     source.Stop();
             };
 
-
-            renderer.Setup(view.Handle, source);
             source.Start();
 
-            Application.ApplicationExit += (o, a) =>
-            {
-                if (renderer != null)
-                {
-                    renderer.Dispose();
-                    renderer = null;
-                }
-            };
+            Application.ApplicationExit += (o, a) => { };
             Application.Run(form);
+        }
+    }
+
+    enum RenderMode
+    {
+        GDIPlus,
+        SlimDX,
+    }
+
+    abstract class RendererBase : IDisposable
+    {
+        public RendererBase(IntPtr Handle, IFrameSource FrameSource)
+        {
+            this.OwnerHandle = Handle;
+            this.FrameSource = FrameSource;
+
+            this.Width = FrameSource.VideoBuffer.Width;
+            this.Height = FrameSource.VideoBuffer.Height;
+            this.PerfCounter = new PerfCounter();
+        }
+
+        protected PerfCounter PerfCounter = null;
+
+        protected int Width = 0;
+        protected int Height = 0;
+
+        protected IFrameSource FrameSource = null;
+        protected IntPtr OwnerHandle = IntPtr.Zero;
+
+        protected volatile bool ReDrawing = false;
+
+        public abstract void Draw(bool UpdateSurface = true);
+
+        public virtual void Dispose()
+        {
+            if (PerfCounter != null)
+            {
+                PerfCounter.Dispose();
+                PerfCounter = null;
+            }
         }
     }
 

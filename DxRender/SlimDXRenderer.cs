@@ -15,7 +15,7 @@ using System.Threading;
 
 namespace DxRender
 {
-    class SlimDXRenderer : IDisposable
+    class SlimDXRenderer : RendererBase
     {
         private Device GraphicDevice = null;
         private PresentParameters PresentParams = null;
@@ -29,42 +29,24 @@ namespace DxRender
 
         private Direct3D D3D = null;
 
-        private PerfCounter PerfCounter = null;
-
-        private IFrameSource FrameSource = null;
-        private IntPtr DeviceWindowHandle = IntPtr.Zero;
-
-        bool DeviceBusy = false;
         bool DeviceLost = false;
 
-        private int Width = 0;
-        private int Height = 0;
-
-        public void Setup(IntPtr Handle, IFrameSource FrameSource)
+        public SlimDXRenderer(IntPtr Handle, IFrameSource FrameSource)
+            : base(Handle, FrameSource)
         {
-            this.DeviceWindowHandle = Handle;
-            this.FrameSource = FrameSource;
-            this.Width = FrameSource.VideoBuffer.Width;
-            this.Height = FrameSource.VideoBuffer.Height;
-
-            PerfCounter = new DxRender.PerfCounter();
-
-            Setup();
+            StartUp();
         }
 
-        private void Setup()
+        private void StartUp()
         {
             PresentParams = CreatePresentParameters();
 
             D3D = new Direct3D();
             GraphicDevice = new Device(D3D, 0, DeviceType.Hardware,
-                DeviceWindowHandle, CreateFlags.Multithreaded | CreateFlags.FpuPreserve | CreateFlags.HardwareVertexProcessing,
+                OwnerHandle, CreateFlags.Multithreaded | CreateFlags.FpuPreserve | CreateFlags.HardwareVertexProcessing,
                 PresentParams);
 
             SpriteBatch = new Sprite(GraphicDevice);
-
-            //SpriteBatch.Transform = Matrix.RotationZ(0.5f);
-            //GraphicDevice.SetTransform(TransformState.Projection, Matrix.RotationZ(0.5f));
 
             BackBufferTexture = new Texture(GraphicDevice,
                 PresentParams.BackBufferWidth,
@@ -72,7 +54,6 @@ namespace DxRender
                 0,
                 Usage.Dynamic,
                 PresentParams.BackBufferFormat,
-                //Format.X8B8G8R8,
                 Pool.Default);
 
             BackBufferTextureSurface = BackBufferTexture.GetSurfaceLevel(0);
@@ -83,12 +64,12 @@ namespace DxRender
                 PresentParams.BackBufferFormat,
                 Pool.Default);
 
-            ScreenFont = new Font(GraphicDevice, new System.Drawing.Font("Arial", 30f, System.Drawing.FontStyle.Regular));
+            ScreenFont = new Font(GraphicDevice, PerfCounter.Styler.Font);
 
             BackBufferArea = new GDI.Rectangle(0, 0, PresentParams.BackBufferWidth, PresentParams.BackBufferHeight);
             DeviceLost = false;
 
-            FrameSource.FrameReceived += FrameSource_FrameReceived;
+            base.FrameSource.FrameReceived += FrameSource_FrameReceived;
         }
 
         private PresentParameters CreatePresentParameters()
@@ -96,7 +77,7 @@ namespace DxRender
             PresentParameters parameters = new PresentParameters();
 
             parameters.SwapEffect = SwapEffect.Discard;
-            parameters.DeviceWindowHandle = DeviceWindowHandle;
+            parameters.DeviceWindowHandle = OwnerHandle;
             parameters.Windowed = true;
             parameters.BackBufferWidth = Width;
             parameters.BackBufferHeight = Height;
@@ -118,11 +99,10 @@ namespace DxRender
             PerfCounter.UpdateStatistic(e.SampleTime);
         }
 
-        public void Draw(bool UpdateSurface = true)
+        public override void Draw(bool UpdateSurface = true)
         {
             if (GraphicDevice == null) return;
-
-            if (DeviceBusy == true) return;
+            if (ReDrawing == true) return;
 
             var r = GraphicDevice.TestCooperativeLevel();
             if (r != ResultCode.Success)
@@ -130,7 +110,7 @@ namespace DxRender
                 if (r == ResultCode.DeviceNotReset)
                 {
                     CleanUp();
-                    Setup();
+                    StartUp();
                     UpdateSurface = true;
                 }
                 if (r == ResultCode.DeviceLost)
@@ -142,22 +122,37 @@ namespace DxRender
 
             try
             {
-                DeviceBusy = true;
+                ReDrawing = true;
                 GraphicDevice.Clear(ClearFlags.Target | ClearFlags.ZBuffer, GDI.Color.Black, 1.0f, 0);
 
                 GraphicDevice.BeginScene();
                 if (UpdateSurface)
                 {
-                    var data = this.FrameSource.VideoBuffer.Data;
+                    MappedData data = this.FrameSource.VideoBuffer.Data;
                     CopyToSurface(data.Scan0, data.Size, BackBufferTextureSurface);
                 }
-                SpriteBatch.Begin(SpriteFlags.AlphaBlend);
-                SpriteBatch.Draw(BackBufferTexture, BackBufferArea, GDI.Color.White);
-                ScreenFont.DrawString(SpriteBatch, PerfCounter.GetReport(), 0, 0, GDI.Color.Red);
-                SpriteBatch.End();
+
+                if (this.FrameSource.VideoBuffer.UpsideDown)
+                {// если изображение перевернуто
+                    SpriteBatch.Begin(SpriteFlags.AlphaBlend);
+                    // поворачивем изображение на 180 град, со смещением
+                    SpriteBatch.Transform = Matrix.Translation(-Width, -Height, 0) * Matrix.RotationZ((float)Math.PI);
+                    SpriteBatch.Draw(BackBufferTexture, BackBufferArea, GDI.Color.White);
+                    // возвращаем все как было и рисуем дальше
+                    SpriteBatch.Transform = Matrix.Translation(0, 0, 0) * Matrix.RotationZ((float)Math.PI * 2f);
+                    ScreenFont.DrawString(SpriteBatch, PerfCounter.GetReport(), 0, 0, PerfCounter.Styler.Color);
+                    SpriteBatch.End();
+                }
+                else
+                {
+                    SpriteBatch.Begin(SpriteFlags.AlphaBlend);
+                    SpriteBatch.Draw(BackBufferTexture, BackBufferArea, GDI.Color.White);
+                    ScreenFont.DrawString(SpriteBatch, PerfCounter.GetReport(), 0, 0, PerfCounter.Styler.Color);
+                    SpriteBatch.End();
+
+                }
 
                 GraphicDevice.EndScene();
-
                 GraphicDevice.Present();
             }
             catch (Direct3D9Exception ex)
@@ -167,10 +162,7 @@ namespace DxRender
 
                 Debug.WriteLine(ex.Message);
             }
-            finally
-            {
-                DeviceBusy = false;
-            }
+            finally { ReDrawing = false; }
         }
 
         private void CopyToSurface(IntPtr Ptr, int Size, Surface surface)
@@ -233,12 +225,14 @@ namespace DxRender
         }//BitmapToTexture
 
 
-        public void Dispose()
+        public override void Dispose()
         {
             CleanUp();
 
             if (PerfCounter != null)
                 PerfCounter.Dispose();
+
+            base.Dispose();
         }
 
         private void CleanUp()

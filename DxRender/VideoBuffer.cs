@@ -37,13 +37,15 @@ namespace DxRender
 
     public class MemoryBuffer : IDisposable
     {
-        public MemoryBuffer(int width, int height, int bitsPerPixel)
+        public MemoryBuffer(int Width, int Height, int BitsPerPixel, bool UpsideDown = false)
         {
-            this.Width = width;
-            this.Height = height;
-            this.BitsPerPixel = bitsPerPixel;
+            this.Width = Width;
+            this.Height = Height;
+            this.BitsPerPixel = BitsPerPixel;
 
-            this.Stride = 4 * ((width * ((bitsPerPixel + 7) / 8) + 3) / 4);
+            this.Stride = 4 * ((Width * ((BitsPerPixel + 7) / 8) + 3) / 4);
+
+            this.UpsideDown = UpsideDown;
         }
 
         private object locker = new object();
@@ -71,6 +73,11 @@ namespace DxRender
                 }
             }
         }
+
+        /// <summary>
+        /// Направление заполнения битмапа (сверху-вниз или снизу-вверх)
+        /// </summary>
+        public bool UpsideDown { get; private set; }
 
         public int Width { get; private set; }
         public int Height { get; private set; }

@@ -28,13 +28,17 @@ namespace DxRender
         {
             get { return buffer; }
         }
-
-        public event EventHandler<FrameReceivedEventArgs> FrameReceived;
+        private event EventHandler<FrameReceivedEventArgs> FrameReceived;
+        event EventHandler<FrameReceivedEventArgs> IFrameSource.FrameReceived
+        {
+            add { FrameReceived += value; }
+            remove { FrameReceived -= value; }
+        }
 
         private void OnFrameReceived(double Timestamp)
         {
             if (FrameReceived != null)
-                FrameReceived(this, new FrameReceivedEventArgs { SampleTime = Timestamp });
+                FrameReceived(this, new FrameReceivedEventArgs { SampleTime = Timestamp});
         }
 
         System.Diagnostics.Stopwatch stopwatch = new System.Diagnostics.Stopwatch();

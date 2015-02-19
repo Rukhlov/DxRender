@@ -49,12 +49,17 @@ namespace DxRender
             CloseInterfaces();
         }
 
-        public event EventHandler<FrameReceivedEventArgs> FrameReceived;
+        private event EventHandler<FrameReceivedEventArgs> FrameReceived;
+        event EventHandler<FrameReceivedEventArgs> IFrameSource.FrameReceived
+        {
+            add { FrameReceived += value; }
+            remove { FrameReceived -= value; }
+        }
 
         private void OnFrameReceived(double Timestamp)
         {
             if (FrameReceived != null)
-                FrameReceived(this, new FrameReceivedEventArgs {SampleTime=Timestamp});
+                FrameReceived(this, new FrameReceivedEventArgs { SampleTime = Timestamp });
         }
 
         #endregion
@@ -178,8 +183,8 @@ namespace DxRender
             // Grab the size info
             VideoInfoHeader videoInfoHeader = (VideoInfoHeader)Marshal.PtrToStructure(media.formatPtr, typeof(VideoInfoHeader));
 
-            buffer = new MemoryBuffer(videoInfoHeader.BmiHeader.Width, videoInfoHeader.BmiHeader.Height, videoInfoHeader.BmiHeader.BitCount);
-
+            buffer = new MemoryBuffer(videoInfoHeader.BmiHeader.Width, videoInfoHeader.BmiHeader.Height,
+                videoInfoHeader.BmiHeader.BitCount, UpsideDown: true);
 
             DsUtils.FreeAMMediaType(media);
             media = null;
@@ -289,7 +294,7 @@ namespace DxRender
         int ISampleGrabberCB.BufferCB(double SampleTime, IntPtr pBuffer, int BufferLen)
         {
             if (BufferLen <= buffer.Size)
-            {           
+            {
                 NativeMethods.CopyMemory(buffer.Data.Scan0, pBuffer, buffer.Size);
                 OnFrameReceived(SampleTime);
             }

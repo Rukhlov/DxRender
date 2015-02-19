@@ -9,8 +9,7 @@ using System.Runtime.InteropServices.ComTypes;
 
 namespace DxRender
 {
-
-    class PerfCounter: IDisposable
+    class PerfCounter : IDisposable
     {
         public PerfCounter()
         {
@@ -20,19 +19,22 @@ namespace DxRender
             timer = new Timer((o) =>
             {
                 CPU = counter.GetUsage();
-            }, 
+            },
             null, 0, 1000);
 
+            Styler = new PerfStyler();
         }
+
+        public PerfStyler Styler { get; set; }
         private double FPS = 0;
         private double FPS2 = 0;
         private short CPU = 0;
 
         private CPUCounter counter = null;
-        private Timer timer = null;       
+        private Timer timer = null;
         private Stopwatch stopwatch = null;
 
-        double PrevSampleTime = 0;
+        private double PrevSampleTime = 0;
 
         public void UpdateStatistic(double SampleTime)
         {
@@ -42,8 +44,8 @@ namespace DxRender
                 FPS = 1000.0 / TimerEllapsed;
 
             double SampleTimeEllapsed = SampleTime - PrevSampleTime;
-            if(SampleTimeEllapsed>0)
-                FPS2 = 1.0 /SampleTimeEllapsed;
+            if (SampleTimeEllapsed > 0)
+                FPS2 = 1.0 / SampleTimeEllapsed;
             PrevSampleTime = SampleTime;
         }
 
@@ -65,9 +67,43 @@ namespace DxRender
                 counter = null;
             }
 
+            if (Styler != null)
+            {
+                Styler.Dispose();
+                Styler = null;
+            }
         }
 
-        class CPUCounter:IDisposable
+        public class PerfStyler : IDisposable
+        {
+            public PerfStyler()
+            {
+                Color = System.Drawing.Color.Red;
+                Font = new System.Drawing.Font("Arial", 30f, System.Drawing.FontStyle.Regular);
+                Brush = new System.Drawing.SolidBrush(Color);
+            }
+
+            public System.Drawing.Font Font { get; private set; }
+            public System.Drawing.Brush Brush { get; private set; }
+            public System.Drawing.Color Color { get; private set; }
+
+            public void Dispose()
+            {
+                if (Font != null)
+                {
+                    Font.Dispose();
+                    Font = null;
+                }
+
+                if (Brush != null)
+                {
+                    Brush.Dispose();
+                    Brush = null;
+                }
+            }
+        }
+
+        class CPUCounter : IDisposable
         {
 
             FILETIME _prevSysKernel;

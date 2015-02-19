@@ -54,7 +54,8 @@
     <Compile Include="BitmapSource.cs" />
     <Compile Include="CaptureSource.cs" />
     <Compile Include="CPUCounter.cs" />
-    <Compile Include="PlotView.cs">
+    <Compile Include="GDIPlusRenderer.cs" />
+    <Compile Include="RenderControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Program.cs" />
