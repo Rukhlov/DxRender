@@ -1,6 +1,7 @@
 ﻿using System;
 
 using System.Windows.Forms;
+using System.Drawing;
 
 namespace DxRender
 {
@@ -10,8 +11,8 @@ namespace DxRender
         {
             int CaptureDevice = 0;
             int FrameRate = 30;
-            int Width = 1280;
-            int Height = 720;
+            int Width = 640;
+            int Height = 480;
             //IFrameSource source = new BitmapSource();
             IFrameSource source = new CaptureSource(CaptureDevice, FrameRate, Width, Height);
             RenderControl control = new RenderControl(source, RenderMode.SlimDX) { Dock = DockStyle.Fill };
@@ -54,12 +55,13 @@ namespace DxRender
 
         protected int Width = 0;
         protected int Height = 0;
+        public Rectangle ClientRectangle;
 
         protected IFrameSource FrameSource = null;
         protected IntPtr OwnerHandle = IntPtr.Zero;
 
         protected volatile bool ReDrawing = false;
-
+        
         public abstract void Draw(bool UpdateSurface = true);
 
         public virtual void Dispose()

@@ -106,78 +106,78 @@ namespace DxRender
         class CPUCounter : IDisposable
         {
 
-            FILETIME _prevSysKernel;
-            FILETIME _prevSysUser;
+            FILETIME PrevSysKernel;
+            FILETIME PrevSysUser;
 
-            TimeSpan _prevProcTotal;
+            TimeSpan PrevProcTotal;
 
-            Int16 _cpuUsage;
-            DateTime _lastRun;
-            long _runCount;
+            Int16 CPUUsage;
+            DateTime LastRun;
+            long RunCount;
 
             Process process;
 
             public CPUCounter()
             {
-                _cpuUsage = -1;
-                _lastRun = DateTime.MinValue;
-                _prevSysUser.dwHighDateTime = _prevSysUser.dwLowDateTime = 0;
-                _prevSysKernel.dwHighDateTime = _prevSysKernel.dwLowDateTime = 0;
-                _prevProcTotal = TimeSpan.MinValue;
-                _runCount = 0;
+                CPUUsage = -1;
+                LastRun = DateTime.MinValue;
+                PrevSysUser.dwHighDateTime = PrevSysUser.dwLowDateTime = 0;
+                PrevSysKernel.dwHighDateTime = PrevSysKernel.dwLowDateTime = 0;
+                PrevProcTotal = TimeSpan.MinValue;
+                RunCount = 0;
 
                 process = Process.GetCurrentProcess();
             }
 
             public short GetUsage()
             {
-                short cpuCopy = _cpuUsage;
-                if (Interlocked.Increment(ref _runCount) == 1)
+                short CPUCopy = CPUUsage;
+                if (Interlocked.Increment(ref RunCount) == 1)
                 {
                     if (!EnoughTimePassed)
                     {
-                        Interlocked.Decrement(ref _runCount);
-                        return cpuCopy;
+                        Interlocked.Decrement(ref RunCount);
+                        return CPUCopy;
                     }
 
-                    FILETIME sysIdle, sysKernel, sysUser;
-                    TimeSpan procTime;
+                    FILETIME SysIdle, SysKernel, SysUser;
+                    TimeSpan ProcTime;
 
                     //Process process = Process.GetCurrentProcess();
-                    procTime = process.TotalProcessorTime;
+                    ProcTime = process.TotalProcessorTime;
 
-                    if (!NativeMethods.GetSystemTimes(out sysIdle, out sysKernel, out sysUser))
+                    if (!NativeMethods.GetSystemTimes(out SysIdle, out SysKernel, out SysUser))
                     {
-                        Interlocked.Decrement(ref _runCount);
-                        return cpuCopy;
+                        Interlocked.Decrement(ref RunCount);
+                        return CPUCopy;
                     }
 
                     if (!IsFirstRun)
                     {
-                        UInt64 sysKernelDiff = SubtractTimes(sysKernel, _prevSysKernel);
-                        UInt64 sysUserDiff = SubtractTimes(sysUser, _prevSysUser);
+                        UInt64 SysKernelDiff = SubtractTimes(SysKernel, PrevSysKernel);
+                        UInt64 SysUserDiff = SubtractTimes(SysUser, PrevSysUser);
 
-                        UInt64 sysTotal = sysKernelDiff + sysUserDiff;
+                        UInt64 SysTotal = SysKernelDiff + SysUserDiff;
 
-                        Int64 procTotal = procTime.Ticks - _prevProcTotal.Ticks;
+                        Int64 ProcTotal = ProcTime.Ticks - PrevProcTotal.Ticks;
 
-                        if (sysTotal > 0)
+                        if (SysTotal > 0)
                         {
-                            _cpuUsage = (short)((100.0 * procTotal) / sysTotal);
+                            CPUUsage = (short)((100.0 * ProcTotal) / SysTotal);
                         }
                     }
 
-                    _prevProcTotal = procTime;
-                    _prevSysKernel = sysKernel;
-                    _prevSysUser = sysUser;
+                    PrevProcTotal = ProcTime;
+                    PrevSysKernel = SysKernel;
+                    PrevSysUser = SysUser;
 
-                    _lastRun = DateTime.Now;
+                    LastRun = DateTime.Now;
 
-                    cpuCopy = _cpuUsage;
+                    CPUCopy = CPUUsage;
                 }
-                Interlocked.Decrement(ref _runCount);
+                Interlocked.Decrement(ref RunCount);
 
-                return cpuCopy;
+                return CPUCopy;
 
             }
 
@@ -194,7 +194,7 @@ namespace DxRender
                 get
                 {
                     const int minimumElapsedMS = 250;
-                    TimeSpan sinceLast = DateTime.Now - _lastRun;
+                    TimeSpan sinceLast = DateTime.Now - LastRun;
                     return sinceLast.TotalMilliseconds > minimumElapsedMS;
                 }
             }
@@ -203,7 +203,7 @@ namespace DxRender
             {
                 get
                 {
-                    return (_lastRun == DateTime.MinValue);
+                    return (LastRun == DateTime.MinValue);
                 }
             }
 

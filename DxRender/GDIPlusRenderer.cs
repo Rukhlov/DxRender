@@ -13,7 +13,7 @@ namespace DxRender
             : base(Handle, FrameSource)
         {
             base.FrameSource.FrameReceived += FrameSource_FrameReceived;
-            this.CurrentBitmap = new Bitmap(Width, Height, PixelFormat.Format32bppArgb);           
+            this.CurrentBitmap = new Bitmap(Width, Height, PixelFormat.Format32bppArgb);
         }
 
         private Bitmap CurrentBitmap = null;
@@ -29,25 +29,27 @@ namespace DxRender
             if (ReDrawing == true) return;
             try
             {
-                ReDrawing = true; 
+                ReDrawing = true;
                 Graphics graphics = Graphics.FromHwnd(base.OwnerHandle);
                 if (UpdateSurface)
                 {
                     MappedData data = this.FrameSource.VideoBuffer.Data;
                     BitmapData bits = CurrentBitmap.LockBits(new Rectangle(0, 0, CurrentBitmap.Width, CurrentBitmap.Height),
-                        ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);                 
+                        ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
                     NativeMethods.CopyMemory(bits.Scan0, data.Scan0, data.Size);
                     CurrentBitmap.UnlockBits(bits);
 
-                    if(this.FrameSource.VideoBuffer.UpsideDown)
+                    if (this.FrameSource.VideoBuffer.UpsideDown)
                         CurrentBitmap.RotateFlip(RotateFlipType.RotateNoneFlipY);
 
                     Graphics g = Graphics.FromImage(CurrentBitmap);
                     g.DrawString(PerfCounter.GetReport(), PerfCounter.Styler.Font, PerfCounter.Styler.Brush, 10f, 10f);
                     g.Dispose();
                 }
+                graphics.DrawImage(CurrentBitmap, ClientRectangle);
 
-                graphics.DrawImage(CurrentBitmap, 0, 0, Width, Height);
+                //graphics.DrawImage(CurrentBitmap, 0, 0, Width, Height);
+
                 graphics.Dispose();
             }
             finally { ReDrawing = false; }

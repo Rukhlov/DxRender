@@ -27,8 +27,8 @@ namespace DxRender
         private Surface OffscreenSurface;
         private Font ScreenFont;
 
-        private Direct3D D3D = null;
-
+        private Direct3D Direct3D9 = null;
+        AdapterInformation AdapterInfo = null;
         bool DeviceLost = false;
 
         public SlimDXRenderer(IntPtr Handle, IFrameSource FrameSource)
@@ -39,12 +39,13 @@ namespace DxRender
 
         private void StartUp()
         {
+            Direct3D9 = new Direct3D();
+            AdapterInfo = Direct3D9.Adapters.DefaultAdapter;
+            //var Capabilities= Direct3D9.GetDeviceCaps(0, DeviceType.Hardware);
             PresentParams = CreatePresentParameters();
-
-            D3D = new Direct3D();
-            GraphicDevice = new Device(D3D, 0, DeviceType.Hardware,
-                OwnerHandle, CreateFlags.Multithreaded | CreateFlags.FpuPreserve | CreateFlags.HardwareVertexProcessing,
-                PresentParams);
+            
+            CreateFlags Flags = CreateFlags.Multithreaded | CreateFlags.FpuPreserve | CreateFlags.HardwareVertexProcessing;
+            GraphicDevice = new Device(Direct3D9, AdapterInfo.Adapter, DeviceType.Hardware, OwnerHandle, Flags, PresentParams);
 
             SpriteBatch = new Sprite(GraphicDevice);
 
@@ -72,17 +73,26 @@ namespace DxRender
             base.FrameSource.FrameReceived += FrameSource_FrameReceived;
         }
 
+        private bool IsFullScreen = false;
         private PresentParameters CreatePresentParameters()
         {
             PresentParameters parameters = new PresentParameters();
-
             parameters.SwapEffect = SwapEffect.Discard;
-            parameters.DeviceWindowHandle = OwnerHandle;
-            parameters.Windowed = true;
-            parameters.BackBufferWidth = Width;
-            parameters.BackBufferHeight = Height;
 
-            parameters.BackBufferFormat = Format.A8R8G8B8;
+            parameters.DeviceWindowHandle = OwnerHandle;
+            if (IsFullScreen == false)
+            {
+                parameters.Windowed = true;
+                parameters.BackBufferWidth = Width;
+                parameters.BackBufferHeight = Height;
+            }
+            else
+            { // для включения полноэкранного режима нужен хендл топового окна(НЕ КОНТРОЛА!!!)
+                parameters.Windowed = false;
+                parameters.BackBufferWidth = AdapterInfo.CurrentDisplayMode.Width;
+                parameters.BackBufferHeight = AdapterInfo.CurrentDisplayMode.Height;
+            }
+            parameters.BackBufferFormat = AdapterInfo.CurrentDisplayMode.Format;//Format.A8R8G8B8;
             parameters.AutoDepthStencilFormat = Format.D16;
             parameters.Multisample = MultisampleType.None;
             parameters.MultisampleQuality = 0;
@@ -240,10 +250,10 @@ namespace DxRender
             if (FrameSource != null)
                 FrameSource.FrameReceived -= FrameSource_FrameReceived;
 
-            if (D3D != null)
+            if (Direct3D9 != null)
             {
-                D3D.Dispose();
-                D3D = null;
+                Direct3D9.Dispose();
+                Direct3D9 = null;
             }
 
             if (GraphicDevice != null)

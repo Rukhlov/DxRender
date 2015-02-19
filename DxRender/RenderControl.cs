@@ -13,16 +13,18 @@ namespace DxRender
             this.DoubleBuffered = false;
 
             this.FrameSource = FrameSource;
-            Renderer = CreateRender(Mode);
+            this.Renderer = CreateRender(Mode);
         }
 
         private RendererBase CreateRender(RenderMode Mode)
         {
-            if(Mode==RenderMode.GDIPlus)
+            if (Mode == RenderMode.GDIPlus)
                 return new GDIPlusRenderer(this.Handle, this.FrameSource);
             else
                 return new SlimDXRenderer(this.Handle, this.FrameSource);
         }
+
+        //public void Setup() { this.Renderer = new SlimDXRenderer(this.ParentForm.Handle, this.FrameSource); }
 
         private RendererBase Renderer = null;
         private IFrameSource FrameSource = null;
@@ -43,6 +45,24 @@ namespace DxRender
 
             base.OnKeyDown(e);
         }
+        protected override void OnMouseClick(MouseEventArgs e)
+        {
+            MessageBox.Show(string.Format("OnMouseClick Location: {0},{1}", e.Location.X, e.Location.Y));
+            base.OnMouseClick(e);
+        }
+
+        protected override void OnMouseWheel(MouseEventArgs e)
+        {
+            MessageBox.Show(string.Format("OnMouseWheel Delta: {0},", e.Delta));
+            base.OnMouseWheel(e);
+        }
+        protected override void OnResize(System.EventArgs e)
+        {
+            Renderer.ClientRectangle = this.ClientRectangle;
+
+            base.OnResize(e);
+        }
+
         protected override void OnPaint(PaintEventArgs e)
         {
             Renderer.Draw(false);
@@ -51,17 +71,7 @@ namespace DxRender
         {
             //do nothing
         }
-        protected override void OnMouseClick(MouseEventArgs e)
-        {
-            //MessageBox.Show(string.Format("OnMouseClick Location: {0},{1}", e.Location.X, e.Location.Y));
-            base.OnMouseClick(e);
-        }
 
-        protected override void OnMouseWheel(MouseEventArgs e)
-        {
-            //MessageBox.Show(string.Format("OnMouseWheel Delta: {0},", e.Delta));
-            base.OnMouseWheel(e);
-        }
         protected override void Dispose(bool disposing)
         {
             if (Renderer != null)
