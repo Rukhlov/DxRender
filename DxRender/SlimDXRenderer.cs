@@ -28,7 +28,7 @@ namespace DxRender
         private Font ScreenFont;
 
         private Direct3D Direct3D9 = null;
-        AdapterInformation AdapterInfo = null;
+        private AdapterInformation AdapterInfo = null;
         bool DeviceLost = false;
 
         public SlimDXRenderer(IntPtr Handle, IFrameSource FrameSource)
@@ -92,7 +92,7 @@ namespace DxRender
                 parameters.BackBufferWidth = AdapterInfo.CurrentDisplayMode.Width;
                 parameters.BackBufferHeight = AdapterInfo.CurrentDisplayMode.Height;
             }
-            parameters.BackBufferFormat = AdapterInfo.CurrentDisplayMode.Format;//Format.A8R8G8B8;
+            parameters.BackBufferFormat = AdapterInfo.CurrentDisplayMode.Format;
             parameters.AutoDepthStencilFormat = Format.D16;
             parameters.Multisample = MultisampleType.None;
             parameters.MultisampleQuality = 0;
@@ -149,7 +149,7 @@ namespace DxRender
                     SpriteBatch.Transform = Matrix.Translation(-Width, -Height, 0) * Matrix.RotationZ((float)Math.PI);
                     SpriteBatch.Draw(BackBufferTexture, BackBufferArea, GDI.Color.White);
                     // возвращаем все как было и рисуем дальше
-                    SpriteBatch.Transform = Matrix.Translation(0, 0, 0) * Matrix.RotationZ((float)Math.PI * 2f);
+                    SpriteBatch.Transform = Matrix.Translation(0, 0, 0) * Matrix.RotationZ((float)Math.PI*2 );
                     ScreenFont.DrawString(SpriteBatch, PerfCounter.GetReport(), 0, 0, PerfCounter.Styler.Color);
                     SpriteBatch.End();
                 }
@@ -164,6 +164,7 @@ namespace DxRender
 
                 GraphicDevice.EndScene();
                 GraphicDevice.Present();
+                //Thread.Sleep(1000);
             }
             catch (Direct3D9Exception ex)
             {
@@ -173,6 +174,14 @@ namespace DxRender
                 Debug.WriteLine(ex.Message);
             }
             finally { ReDrawing = false; }
+        }
+
+        public int Test()
+        {
+            MappedData data = this.FrameSource.VideoBuffer.Data;
+            CopyToSurface(data.Scan0, data.Size, BackBufferTextureSurface);
+
+            return data.Size;
         }
 
         private void CopyToSurface(IntPtr Ptr, int Size, Surface surface)

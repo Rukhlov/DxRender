@@ -1,4 +1,5 @@
 ﻿using System.Windows.Forms;
+using System.Diagnostics;
 
 namespace DxRender
 {
@@ -29,6 +30,7 @@ namespace DxRender
         private RendererBase Renderer = null;
         private IFrameSource FrameSource = null;
 
+        Stopwatch stapwatch = new Stopwatch();
         protected override void OnKeyDown(KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Escape)
@@ -41,6 +43,11 @@ namespace DxRender
             {
                 if (FrameSource != null)
                     FrameSource.Pause();
+            }
+
+            if (e.KeyCode == Keys.F1)
+            {
+                //...
             }
 
             base.OnKeyDown(e);

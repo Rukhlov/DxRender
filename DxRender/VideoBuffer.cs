@@ -68,7 +68,6 @@ namespace DxRender
                         IntPtr Ptr = MappedStream.SafeMemoryMappedViewHandle.DangerousGetHandle();
                         data = new MappedData(Ptr, Size);
                     }
-
                     return data;
                 }
             }

@@ -34,12 +34,14 @@ namespace DxRender
             add { FrameReceived += value; }
             remove { FrameReceived -= value; }
         }
-
         private void OnFrameReceived(double Timestamp)
         {
             if (FrameReceived != null)
                 FrameReceived(this, new FrameReceivedEventArgs { SampleTime = Timestamp});
         }
+
+        private string info = "BitmapSource";
+        string IFrameSource.Info { get { return info; } }
 
         System.Diagnostics.Stopwatch stopwatch = new System.Diagnostics.Stopwatch();
         void IFrameSource.Start()

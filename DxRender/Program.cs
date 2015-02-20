@@ -1,23 +1,83 @@
 ﻿using System;
-
+using System.Linq;
 using System.Windows.Forms;
 using System.Drawing;
+using System.Threading;
+using System.Diagnostics;
 
 namespace DxRender
 {
     class Program
     {
-        static void Main()
+        static void Main(string[] args)
         {
             int CaptureDevice = 0;
             int FrameRate = 30;
-            int Width = 640;
-            int Height = 480;
+            int Width = 1920;
+            int Height = 1080;
+
+            RenderMode RenderMode = DxRender.RenderMode.SlimDX;
+            bool TestMode = false;
+
+            foreach (string arg in args)
+            {
+                int value = 0;
+                if (CommandLine.GetCommandLineValue(arg, CommandLine.CaptureDevice, out value))
+                    CaptureDevice = value;
+
+                if (CommandLine.GetCommandLineValue(arg, CommandLine.FrameRate, out value))
+                    FrameRate = value;
+
+                if (CommandLine.GetCommandLineValue(arg, CommandLine.Width, out value))
+                    Width = value;
+
+                if (CommandLine.GetCommandLineValue(arg, CommandLine.Height, out value))
+                    Height = value;
+
+                if (CommandLine.GetCommandLineValue(arg, CommandLine.RenderMode, out value))
+                    RenderMode = (RenderMode)value;
+
+            }
+
+
+            if (RenderMode == RenderMode.Test)
+            {
+                Stopwatch stopwatch =new Stopwatch();
+                var r = new SlimDXRenderer(IntPtr.Zero, new BitmapSource());
+                if (r != null)
+                {
+                    long len = 0;
+                    stopwatch.Restart();
+                    int count = 10000;
+                    while (count-- > 0)
+                    {
+                        len+=r.Test();
+                    }
+                    long msec = stopwatch.ElapsedMilliseconds;
+                    double result = (double)len / (msec / 1000) / (1024 * 1024);
+
+                    Console.WriteLine("Test CPU->GPU copy {0:0.0} Mb/sec", result);
+
+                    r.Dispose();
+
+                    return;
+                }
+            }
+
             //IFrameSource source = new BitmapSource();
             IFrameSource source = new CaptureSource(CaptureDevice, FrameRate, Width, Height);
-            RenderControl control = new RenderControl(source, RenderMode.SlimDX) { Dock = DockStyle.Fill };
+            RenderControl control = new RenderControl(source, RenderMode) 
+            { 
+                Dock = DockStyle.Fill 
+            };
 
-            Form form = new Form { Width = Width, Height = Height };
+            Form form = new Form 
+            { 
+                Width = source.VideoBuffer.Width, 
+                Height = source.VideoBuffer.Height, 
+                Text = source.Info 
+            };
+
             form.Controls.Add(control);
 
             form.FormClosing += (o, e) =>
@@ -25,18 +85,41 @@ namespace DxRender
                 if (source != null)
                     source.Stop();
             };
-
-            source.Start();
+            source.Start();           
 
             Application.ApplicationExit += (o, a) => { };
             Application.Run(form);
+        }
+
+        class CommandLine
+        {
+            public const string Width = "-w=";
+            public const string Height = "-h=";
+            public const string FrameRate = "-fps=";
+            public const string CaptureDevice = "-device=";
+            public const string RenderMode = "-render=";
+
+            public static bool GetCommandLineValue(string Param, string Command, out int Value)
+            {
+                bool Result = false;
+                Value = 0;
+                Param = Param.Trim();
+                if (Param.StartsWith(Command, StringComparison.CurrentCultureIgnoreCase))
+                {
+                    string SubStr = Param.Substring(Command.Length, Param.Length - Command.Length);
+                    if (string.IsNullOrEmpty(SubStr) == false)
+                        Result = int.TryParse(SubStr, out Value);
+                }
+                return Result;
+            }
         }
     }
 
     enum RenderMode
     {
-        GDIPlus,
-        SlimDX,
+        SlimDX = 0,
+        GDIPlus = 1,
+        Test=2,
     }
 
     abstract class RendererBase : IDisposable
@@ -61,7 +144,7 @@ namespace DxRender
         protected IntPtr OwnerHandle = IntPtr.Zero;
 
         protected volatile bool ReDrawing = false;
-        
+
         public abstract void Draw(bool UpdateSurface = true);
 
         public virtual void Dispose()
@@ -81,6 +164,8 @@ namespace DxRender
         void Stop();
         MemoryBuffer VideoBuffer { get; }
         event EventHandler<FrameReceivedEventArgs> FrameReceived;
+
+        string Info { get; }
     }
 
     class FrameReceivedEventArgs : EventArgs
