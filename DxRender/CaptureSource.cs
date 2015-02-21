@@ -8,7 +8,6 @@ namespace DxRender
 {
     internal class CaptureSource : ISampleGrabberCB, IFrameSource, IDisposable
     {
-
         #region IFrameSource
 
         private MemoryBuffer buffer = null;
@@ -61,6 +60,8 @@ namespace DxRender
             if (FrameReceived != null)
                 FrameReceived(this, new FrameReceivedEventArgs { SampleTime = Timestamp });
         }
+        private string CaptureInfo = "";
+        string IFrameSource.Info { get { return CaptureInfo; } }
 
         #endregion
 
@@ -110,7 +111,7 @@ namespace DxRender
 
         private void SetupGraph(DsDevice Device, int FrameRate, int Width, int Height)
         {
-            int hr;
+            int HResult = 0;
 
             ISampleGrabber SampleGrabber = null;
             IBaseFilter CaptureFilter = null;
@@ -124,26 +125,27 @@ namespace DxRender
 
                 SampleGrabber = (ISampleGrabber)new SampleGrabber();
 
-                hr = CaptureGraphBuilder.SetFiltergraph(FilterGraph);
-                DsError.ThrowExceptionForHR(hr);
+                HResult = CaptureGraphBuilder.SetFiltergraph(FilterGraph);
+                DsError.ThrowExceptionForHR(HResult);
 
-                hr = FilterGraph.AddSourceFilterForMoniker(Device.Mon, null, "Video input", out CaptureFilter);
-                DsError.ThrowExceptionForHR(hr);
+                HResult = FilterGraph.AddSourceFilterForMoniker(Device.Mon, null, "Video input", out CaptureFilter);
+                DsError.ThrowExceptionForHR(HResult);
 
                 IBaseFilter baseGrabFlt = (IBaseFilter)SampleGrabber;
                 ConfigureSampleGrabber(SampleGrabber);
 
-                hr = FilterGraph.AddFilter(baseGrabFlt, "Ds.NET Grabber");
-                DsError.ThrowExceptionForHR(hr);
+                HResult = FilterGraph.AddFilter(baseGrabFlt, "Ds.NET Grabber");
+                DsError.ThrowExceptionForHR(HResult);
 
                 if (FrameRate + Height + Width > 0)
                 {
                     SetConfigParms(CaptureGraphBuilder, CaptureFilter, FrameRate, Width, Height);
                 }
 
-                hr = CaptureGraphBuilder.RenderStream(PinCategory.Capture, MediaType.Video, CaptureFilter, null, baseGrabFlt);
-                DsError.ThrowExceptionForHR(hr);
+                HResult = CaptureGraphBuilder.RenderStream(PinCategory.Capture, MediaType.Video, CaptureFilter, null, baseGrabFlt);
+                DsError.ThrowExceptionForHR(HResult);
 
+                CaptureInfo = string.Format("{0} ", Device.Name);
                 SaveSizeInfo(SampleGrabber);
             }
             finally
@@ -168,113 +170,109 @@ namespace DxRender
 
         private void SaveSizeInfo(ISampleGrabber SampleGrabber)
         {
-            int hr;
+            int HResult = 0;
+            AMMediaType MType = new AMMediaType();
+            HResult = SampleGrabber.GetConnectedMediaType(MType);
+            DsError.ThrowExceptionForHR(HResult);
 
-            // Get the media type from the SampleGrabber
-            AMMediaType media = new AMMediaType();
-            hr = SampleGrabber.GetConnectedMediaType(media);
-            DsError.ThrowExceptionForHR(hr);
-
-            if ((media.formatType != FormatType.VideoInfo) || (media.formatPtr == IntPtr.Zero))
-            {
+            if ((MType.formatType != FormatType.VideoInfo) || (MType.formatPtr == IntPtr.Zero))
                 throw new NotSupportedException("Unknown Grabber Media Format");
-            }
 
-            // Grab the size info
-            VideoInfoHeader videoInfoHeader = (VideoInfoHeader)Marshal.PtrToStructure(media.formatPtr, typeof(VideoInfoHeader));
+            VideoInfoHeader videoInfoHeader = (VideoInfoHeader)Marshal.PtrToStructure(MType.formatPtr, typeof(VideoInfoHeader));
 
             buffer = new MemoryBuffer(videoInfoHeader.BmiHeader.Width, videoInfoHeader.BmiHeader.Height,
                 videoInfoHeader.BmiHeader.BitCount, UpsideDown: true);
 
-            DsUtils.FreeAMMediaType(media);
-            media = null;
+            CaptureInfo += string.Format("{0}x{1} {2}fps {3}bit",
+                videoInfoHeader.BmiHeader.Width, videoInfoHeader.BmiHeader.Height,
+                10000000 / videoInfoHeader.AvgTimePerFrame, videoInfoHeader.BmiHeader.BitCount);
+
+            DsUtils.FreeAMMediaType(MType);
+            MType = null;
         }
+
         private void ConfigureSampleGrabber(ISampleGrabber SampleGrabber)
         {
-            AMMediaType media;
-            int hr;
+            int HResult = 0;
 
-            media = new AMMediaType();
-            media.majorType = MediaType.Video;
-            media.subType = MediaSubType.ARGB32;
-            media.formatType = FormatType.VideoInfo;
-            hr = SampleGrabber.SetMediaType(media);
-            DsError.ThrowExceptionForHR(hr);
+            AMMediaType MType = new AMMediaType();
+            MType.majorType = MediaType.Video;
+            MType.subType = MediaSubType.ARGB32;
+            MType.formatType = FormatType.VideoInfo;
+            HResult = SampleGrabber.SetMediaType(MType);
+            DsError.ThrowExceptionForHR(HResult);
 
-            DsUtils.FreeAMMediaType(media);
-            media = null;
+            DsUtils.FreeAMMediaType(MType);
+            MType = null;
 
-            hr = SampleGrabber.SetCallback(this, 1);
-            DsError.ThrowExceptionForHR(hr);
+            // SampleCB - 0
+            // BufferCB - 1
+            HResult = SampleGrabber.SetCallback(this, 1);
+            DsError.ThrowExceptionForHR(HResult);
         }
 
         private void SetConfigParms(ICaptureGraphBuilder2 CaptureGraphBuilder, IBaseFilter CaptureFilter, int FrameRate, int Width, int Height)
         {
-            int hr;
-            object o;
-            AMMediaType media;
+            int HResult = 0;
+            object ObjectPointer = null;
+            HResult = CaptureGraphBuilder.FindInterface(PinCategory.Capture, MediaType.Video, CaptureFilter, typeof(IAMStreamConfig).GUID, out ObjectPointer);
 
-            // Find the stream config interface
-            hr = CaptureGraphBuilder.FindInterface(PinCategory.Capture, MediaType.Video, CaptureFilter, typeof(IAMStreamConfig).GUID, out o);
-
-            IAMStreamConfig videoStreamConfig = o as IAMStreamConfig;
-            if (videoStreamConfig == null)
-            {
+            IAMStreamConfig VideoStreamConfig = ObjectPointer as IAMStreamConfig;
+            if (VideoStreamConfig == null)
                 throw new Exception("Failed to get IAMStreamConfig");
-            }
 
-            // Get the existing format block
-            hr = videoStreamConfig.GetFormat(out media);
-            DsError.ThrowExceptionForHR(hr);
+            int iCount = 0, iSize = 0;
+            VideoStreamConfig.GetNumberOfCapabilities(out iCount, out iSize);
 
-            // copy out the videoinfoheader
-            VideoInfoHeader v = new VideoInfoHeader();
-            Marshal.PtrToStructure(media.formatPtr, v);
+            IntPtr TaskMemPointer = Marshal.AllocCoTaskMem(iSize);
 
-            // if overriding the framerate, set the frame rate
-            if (FrameRate > 0)
+            VideoInfoHeader VideoInfoHeader = new VideoInfoHeader();
+
+            AMMediaType MType = null;
+            for (int iFormat = 0; iFormat < iCount; iFormat++)
             {
-                v.AvgTimePerFrame = 10000000 / FrameRate;
+                VideoStreamConfig.GetStreamCaps(iFormat, out MType, TaskMemPointer);
+
+                VideoInfoHeader = (VideoInfoHeader)Marshal.PtrToStructure(MType.formatPtr, typeof(VideoInfoHeader));
+
+                Debug.WriteLine("{0}x{1} {2}fps {3}bit",
+                    VideoInfoHeader.BmiHeader.Width, VideoInfoHeader.BmiHeader.Height,
+                    10000000 / VideoInfoHeader.AvgTimePerFrame, VideoInfoHeader.BmiHeader.BitCount);
+
+                if (VideoInfoHeader.BmiHeader.Width == Width && VideoInfoHeader.BmiHeader.Height == Height)
+                {
+                    Marshal.StructureToPtr(VideoInfoHeader, MType.formatPtr, true);
+                    HResult = VideoStreamConfig.SetFormat(MType);
+                    break;
+                }
+
             }
 
-            // if overriding the width, set the width
-            if (Width > 0)
-            {
-                v.BmiHeader.Width = Width;
-            }
-
-            // if overriding the Height, set the Height
-            if (Height > 0)
-            {
-                v.BmiHeader.Height = Height;
-            }
-
-            // Copy the media structure back
-            Marshal.StructureToPtr(v, media.formatPtr, false);
-
-            // Set the new format
-            hr = videoStreamConfig.SetFormat(media);
-            DsError.ThrowExceptionForHR(hr);
-
-            DsUtils.FreeAMMediaType(media);
-            media = null;
+            DsUtils.FreeAMMediaType(MType);
+            MType = null;
         }
 
         private void CloseInterfaces()
         {
-            int hr;
+            int HResult = 0;
 
             try
             {
                 if (MediaControll != null)
                 {
-                    hr = MediaControll.Stop();
+                    HResult = MediaControll.Stop();
                     IsRunning = false;
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine(ex);
+            }
+
+            if (MediaControll != null)
+            {
+                Marshal.ReleaseComObject(MediaControll);
+                MediaControll = null;
             }
 
             if (FilterGraph != null)
@@ -285,17 +283,17 @@ namespace DxRender
         }
 
 
-        int ISampleGrabberCB.SampleCB(double SampleTime, IMediaSample pSample)
+        int ISampleGrabberCB.SampleCB(double SampleTime, IMediaSample MediaSample)
         {
-            Marshal.ReleaseComObject(pSample);
+            Marshal.ReleaseComObject(MediaSample);
             return 0;
         }
 
-        int ISampleGrabberCB.BufferCB(double SampleTime, IntPtr pBuffer, int BufferLen)
+        int ISampleGrabberCB.BufferCB(double SampleTime, IntPtr Buffer, int BufferLen)
         {
             if (BufferLen <= buffer.Size)
             {
-                NativeMethods.CopyMemory(buffer.Data.Scan0, pBuffer, buffer.Size);
+                NativeMethods.CopyMemory(buffer.Data.Scan0, Buffer, buffer.Size);
                 OnFrameReceived(SampleTime);
             }
             else

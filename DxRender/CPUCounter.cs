@@ -13,6 +13,18 @@ namespace DxRender
     {
         public PerfCounter()
         {
+            _PerfCounter();
+            Styler = new PerfStyler();
+        }
+
+        public PerfCounter(float FontSize)
+        {
+            _PerfCounter();
+            Styler = new PerfStyler(FontSize);
+        }
+
+        private void _PerfCounter()
+        {
             stopwatch = new Stopwatch();
             counter = new CPUCounter();
 
@@ -21,8 +33,6 @@ namespace DxRender
                 CPU = counter.GetUsage();
             },
             null, 0, 1000);
-
-            Styler = new PerfStyler();
         }
 
         public PerfStyler Styler { get; set; }
@@ -79,7 +89,14 @@ namespace DxRender
             public PerfStyler()
             {
                 Color = System.Drawing.Color.Red;
-                Font = new System.Drawing.Font("Arial", 30f, System.Drawing.FontStyle.Regular);
+                Font = new System.Drawing.Font("Arial", 14f, System.Drawing.FontStyle.Regular);
+                Brush = new System.Drawing.SolidBrush(Color);
+            }
+
+            public PerfStyler(float FontSize)
+            {
+                Color = System.Drawing.Color.Red;
+                Font = new System.Drawing.Font("Arial", FontSize, System.Drawing.FontStyle.Regular);
                 Brush = new System.Drawing.SolidBrush(Color);
             }
 
