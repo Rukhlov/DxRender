@@ -25,8 +25,6 @@ namespace DxRender
                 return new SlimDXRenderer(this.Handle, this.FrameSource);
         }
 
-        //public void Setup() { this.Renderer = new SlimDXRenderer(this.ParentForm.Handle, this.FrameSource); }
-
         private RendererBase Renderer = null;
         private IFrameSource FrameSource = null;
 

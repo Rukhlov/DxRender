@@ -7,19 +7,17 @@ namespace DxRender
 {
     class BitmapSource : IFrameSource, IDisposable
     {
-        public BitmapSource()
+        public BitmapSource(int Width, int Height)
         {
+            TestBMP = new Bitmap[] { 
+                new Bitmap(Bitmap.FromFile("bitmap\\01.bmp"), Width, Height),
+                new Bitmap(Bitmap.FromFile("bitmap\\02.bmp"), Width, Height),
+                //new Bitmap(Bitmap.FromFile("bitmap\\03.bmp"), Width, Height)
+            };
             buffer = new MemoryBuffer(TestBMP[0].Width, TestBMP[0].Height, 32);
         }
 
-        Bitmap[] TestBMP = 
-        { 
-            (Bitmap)Bitmap.FromFile("bitmap\\01.bmp"), 
-            (Bitmap)Bitmap.FromFile("bitmap\\02.bmp"),
-            (Bitmap)Bitmap.FromFile("bitmap\\03.bmp") 
-        };
-
-        public readonly object locker = new object();
+        Bitmap[] TestBMP = null;
 
         Thread thread = null;
         MemoryBuffer buffer = null;

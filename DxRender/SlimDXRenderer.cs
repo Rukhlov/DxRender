@@ -101,7 +101,7 @@ namespace DxRender
             parameters.AutoDepthStencilFormat = Format.D16;
             parameters.Multisample = MultisampleType.None;
             parameters.MultisampleQuality = 0;
-            parameters.PresentationInterval = PresentInterval.One;
+            parameters.PresentationInterval = PresentInterval.Immediate;
             parameters.PresentFlags = PresentFlags.Video;
 
             return parameters;

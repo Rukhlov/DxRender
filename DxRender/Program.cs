@@ -54,7 +54,7 @@ namespace DxRender
             IFrameSource source = null;
 
             if (SourceMode == SourceMode.Bitmap)
-                source = new BitmapSource();
+                source = new BitmapSource(Width, Height);
             else
                 source = new CaptureSource(CaptureDevice, FrameRate, Width, Height);
 
@@ -116,7 +116,7 @@ namespace DxRender
                 NativeMethods.AllocConsole();
                 var t = new Thread(() =>
                 {
-                    var r = new SlimDXRenderer(IntPtr.Zero, new BitmapSource());
+                    var r = new SlimDXRenderer(IntPtr.Zero, new BitmapSource(1920,1080));
                     if (r != null)
                     {
                         Console.WriteLine("CPU2GPU test start...");
