@@ -205,6 +205,9 @@ namespace DxRender
             DsUtils.FreeAMMediaType(MType);
             MType = null;
 
+            HResult = SampleGrabber.SetBufferSamples(false);
+            DsError.ThrowExceptionForHR(HResult);
+
             // SampleCB - 0
             // BufferCB - 1
             HResult = SampleGrabber.SetCallback(this, 1);
@@ -289,11 +292,16 @@ namespace DxRender
             return 0;
         }
 
+       // Stopwatch sw = new Stopwatch();
         int ISampleGrabberCB.BufferCB(double SampleTime, IntPtr Buffer, int BufferLen)
         {
+
             if (BufferLen <= buffer.Size)
             {
+                //sw.Restart();
+
                 NativeMethods.CopyMemory(buffer.Data.Scan0, Buffer, buffer.Size);
+                //Debug.WriteLine(sw.ElapsedMilliseconds);
                 OnFrameReceived(SampleTime);
             }
             else

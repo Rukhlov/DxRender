@@ -58,13 +58,14 @@ namespace DxRender
 
                     OnFrameReceived(stopwatch.ElapsedMilliseconds/1000.0);
 
-                    Thread.Sleep(16);
+                    Thread.Sleep(1);
                     //Thread.Sleep(1000/100);
                 }
             });
 
             thread.Start();
         }
+
         void IFrameSource.Pause()
         { }
 
@@ -75,17 +76,21 @@ namespace DxRender
 
         private void CopyIntoBuffer(Bitmap bitmap)
         {
-            var map = buffer.Data;
-            BitmapData bits = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height),
-                ImageLockMode.ReadOnly,
-                PixelFormat.Format32bppArgb);
+            lock (buffer)
+            {
+                var map = buffer.Data;
+                BitmapData bits = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height),
+                    ImageLockMode.ReadOnly,
+                    PixelFormat.Format32bppArgb);
 
-            NativeMethods.CopyMemory(map.Scan0, bits.Scan0, map.Size);
-            bitmap.UnlockBits(bits);
+                NativeMethods.CopyMemory(map.Scan0, bits.Scan0, map.Size);
+                bitmap.UnlockBits(bits);
+            }
         }
 
         public void Dispose()
         {
+
             if (thread != null)
                 thread.Abort();
 

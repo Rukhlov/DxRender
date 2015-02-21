@@ -31,9 +31,12 @@ namespace DxRender
         private AdapterInformation AdapterInfo = null;
         private bool DeviceLost = false;
 
+        private MemoryBuffer buffer = null;
         public SlimDXRenderer(IntPtr Handle, IFrameSource FrameSource)
             : base(Handle, FrameSource)
         {
+            buffer = FrameSource.VideoBuffer;
+
             StartUp();
         }
 
@@ -43,8 +46,10 @@ namespace DxRender
             AdapterInfo = Direct3D9.Adapters.DefaultAdapter;
             //var Capabilities= Direct3D9.GetDeviceCaps(0, DeviceType.Hardware);
             PresentParams = CreatePresentParameters();
-            
-            CreateFlags Flags = CreateFlags.Multithreaded | CreateFlags.FpuPreserve | CreateFlags.HardwareVertexProcessing;
+
+            //CreateFlags Flags =  CreateFlags.SoftwareVertexProcessing;
+            CreateFlags Flags = CreateFlags.HardwareVertexProcessing;
+            //CreateFlags Flags = CreateFlags.Multithreaded | CreateFlags.FpuPreserve | CreateFlags.HardwareVertexProcessing;
             GraphicDevice = new Device(Direct3D9, AdapterInfo.Adapter, DeviceType.Hardware, OwnerHandle, Flags, PresentParams);
 
             SpriteBatch = new Sprite(GraphicDevice);
@@ -138,11 +143,14 @@ namespace DxRender
                 GraphicDevice.BeginScene();
                 if (UpdateSurface)
                 {
-                    MappedData data = this.FrameSource.VideoBuffer.Data;
-                    CopyToSurface(data.Scan0, data.Size, BackBufferTextureSurface);
+                    lock (buffer)
+                    {
+                        MappedData data = buffer.Data;
+                        CopyToSurface(data.Scan0, data.Size, BackBufferTextureSurface);
+                    }
                 }
 
-                if (this.FrameSource.VideoBuffer.UpsideDown)
+                if (buffer.UpsideDown)
                 {// если изображение перевернуто
                     SpriteBatch.Begin(SpriteFlags.AlphaBlend);
                     // поворачивем изображение на 180 град, со смещением
@@ -179,9 +187,7 @@ namespace DxRender
         private void CopyToSurface(IntPtr Ptr, int Size, Surface surface)
         {
             DataRectangle SurfaceRectangle = surface.LockRectangle(LockFlags.None);
-
             SurfaceRectangle.Data.WriteRange(Ptr, Size);
-
             surface.UnlockRectangle();
         }
 
@@ -294,10 +300,14 @@ namespace DxRender
 
         internal int CopyToSurfaceTest()
         {
-            MappedData data = this.FrameSource.VideoBuffer.Data;
-            CopyToSurface(data.Scan0, data.Size, BackBufferTextureSurface);
-
-            return data.Size;
+            int Size = 0;
+            lock (buffer)
+            {
+                MappedData data = buffer.Data;
+                CopyToSurface(data.Scan0, data.Size, BackBufferTextureSurface);
+                Size = data.Size;
+            }
+            return Size;
         }
 
 

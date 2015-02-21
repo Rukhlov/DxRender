@@ -16,8 +16,10 @@ namespace DxRender
             int Width = 640;
             int Height = 480;
 
-            RenderMode RenderMode = DxRender.RenderMode.SlimDX;
+            RenderMode RenderMode = RenderMode.SlimDX;
+            SourceMode SourceMode = SourceMode.DSCap;
 
+            int TestId = 0;
             foreach (string arg in args)
             {
                 int value = 0;
@@ -35,13 +37,27 @@ namespace DxRender
 
                 if (CommandLine.GetCommandLineValue(arg, CommandLine.RenderMode, out value))
                     RenderMode = (RenderMode)value;
+
+                if (CommandLine.GetCommandLineValue(arg, CommandLine.RenderMode, out value))
+                    RenderMode = (RenderMode)value;
+
+                if (CommandLine.GetCommandLineValue(arg, CommandLine.SourceMode, out value))
+                    SourceMode = (SourceMode)value;
+
+                if (CommandLine.GetCommandLineValue(arg, CommandLine.TestMode, out value))
+                    TestId = value;
+
             }
 
+            if (TestId > 0) Test.CPU2GPU();
 
-            Test.CPU2GPU(RenderMode);
+            IFrameSource source = null;
 
-            //IFrameSource source = new BitmapSource();
-            IFrameSource source = new CaptureSource(CaptureDevice, FrameRate, Width, Height);
+            if (SourceMode == SourceMode.Bitmap)
+                source = new BitmapSource();
+            else
+                source = new CaptureSource(CaptureDevice, FrameRate, Width, Height);
+
             RenderControl control = new RenderControl(source, RenderMode)
             {
                 Dock = DockStyle.Fill
@@ -73,7 +89,9 @@ namespace DxRender
             public const string Height = "-h=";
             public const string FrameRate = "-fps=";
             public const string CaptureDevice = "-device=";
-            public const string RenderMode = "-mode=";
+            public const string RenderMode = "-render=";
+            public const string SourceMode = "-source=";
+            public const string TestMode = "-test=";
 
             public static bool GetCommandLineValue(string Param, string Command, out int Value)
             {
@@ -93,48 +111,49 @@ namespace DxRender
         class Test
         {
             [Conditional("DEBUG")]
-            public static void CPU2GPU(RenderMode RenderMode)
+            public static void CPU2GPU()
             {
-                if (RenderMode == RenderMode.Test)
+                NativeMethods.AllocConsole();
+                var t = new Thread(() =>
                 {
-                    NativeMethods.AllocConsole();
-                    var t = new Thread(() =>
+                    var r = new SlimDXRenderer(IntPtr.Zero, new BitmapSource());
+                    if (r != null)
                     {
-                        var r = new SlimDXRenderer(IntPtr.Zero, new BitmapSource());
-                        if (r != null)
-                        {
-                            Console.WriteLine("CPU2GPU test start...");
+                        Console.WriteLine("CPU2GPU test start...");
 
-                            long len = 0;
-                            Stopwatch stopwatch = new Stopwatch();
-                            stopwatch.Restart();
-                            int count = 1000;
-                            while (count-- > 0) { len += r.CopyToSurfaceTest(); }
-                            long msec = stopwatch.ElapsedMilliseconds;
-                            double result = (double)len / (msec / 1000) / (1024 * 1024);
+                        long len = 0;
+                        Stopwatch stopwatch = new Stopwatch();
+                        stopwatch.Restart();
+                        int count = 1000;
+                        while (count-- > 0) { len += r.CopyToSurfaceTest(); }
+                        long msec = stopwatch.ElapsedMilliseconds;
+                        double result = (double)len / (msec / 1000) / (1024 * 1024);
 
-                            Console.WriteLine("Test CPU to GPU copy {0:0.0} Mb/sec", result);
-                            Console.WriteLine("Press any key...");
-                            Console.ReadKey();
-                            r.Dispose();
-                        }
-                    });
+                        Console.WriteLine("Test CPU to GPU copy {0:0.0} Mb/sec", result);
 
-                    t.Start();
-                    t.Join();
+                        r.Dispose();
+                    }
+                });
+                t.Start();
+                t.Join();
 
-                    Environment.Exit(0);
-                }
+                Console.WriteLine("Press any key...");
+                Console.ReadKey();
+                Environment.Exit(0);
             }
         }
-  
     }
 
     enum RenderMode
     {
         SlimDX = 0,
         GDIPlus = 1,
-        Test = 2,
+    }
+
+    enum SourceMode
+    {
+        DSCap = 1,
+        Bitmap = 0,
     }
 
     abstract class RendererBase : IDisposable
