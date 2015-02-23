@@ -48,8 +48,8 @@ namespace DxRender
             PresentParams = CreatePresentParameters();
 
             //CreateFlags Flags =  CreateFlags.SoftwareVertexProcessing;
-            CreateFlags Flags = CreateFlags.HardwareVertexProcessing;
-            //CreateFlags Flags = CreateFlags.Multithreaded | CreateFlags.FpuPreserve | CreateFlags.HardwareVertexProcessing;
+            //CreateFlags Flags = CreateFlags.HardwareVertexProcessing;
+            CreateFlags Flags = CreateFlags.Multithreaded | CreateFlags.FpuPreserve | CreateFlags.HardwareVertexProcessing;
             GraphicDevice = new Device(Direct3D9, AdapterInfo.Adapter, DeviceType.Hardware, OwnerHandle, Flags, PresentParams);
 
             SpriteBatch = new Sprite(GraphicDevice);
@@ -110,11 +110,10 @@ namespace DxRender
         private void FrameSource_FrameReceived(object sender, FrameReceivedEventArgs e)
         {
             Draw();
-
             PerfCounter.UpdateStatistic(e.SampleTime);
         }
 
-        public override void Draw(bool UpdateSurface = true)
+        public override void Draw(bool UpdateSurface = true )
         {
             if (GraphicDevice == null) return;
             if (ReDrawing == true) return;
@@ -141,14 +140,9 @@ namespace DxRender
                 GraphicDevice.Clear(ClearFlags.Target | ClearFlags.ZBuffer, GDI.Color.Black, 1.0f, 0);
 
                 GraphicDevice.BeginScene();
+
                 if (UpdateSurface)
-                {
-                    lock (buffer)
-                    {
-                        MappedData data = buffer.Data;
-                        CopyToSurface(data.Scan0, data.Size, BackBufferTextureSurface);
-                    }
-                }
+                    CopyToSurface(buffer, BackBufferTextureSurface);
 
                 if (buffer.UpsideDown)
                 {// если изображение перевернуто
@@ -184,11 +178,26 @@ namespace DxRender
             finally { ReDrawing = false; }
         }
 
-        private void CopyToSurface(IntPtr Ptr, int Size, Surface surface)
+        private void CopyToSurface(IntPtr ptr, int Size, Surface surface)
         {
-            DataRectangle SurfaceRectangle = surface.LockRectangle(LockFlags.None);
-            SurfaceRectangle.Data.WriteRange(Ptr, Size);
-            surface.UnlockRectangle();
+            lock (surface)
+            {
+                DataRectangle SurfaceRectangle = surface.LockRectangle(LockFlags.None);
+                SurfaceRectangle.Data.WriteRange(ptr, Size);
+                surface.UnlockRectangle();
+            }
+        }
+
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        private void CopyToSurface(MemoryBuffer buf, Surface surface)
+        {
+            lock (buf)
+            {
+                MappedData data = buf.Data;
+                DataRectangle SurfaceRectangle = surface.LockRectangle(LockFlags.None);
+                SurfaceRectangle.Data.WriteRange(data.Scan0, data.Size);
+                surface.UnlockRectangle();
+            }
         }
 
 
@@ -300,14 +309,8 @@ namespace DxRender
 
         internal int CopyToSurfaceTest()
         {
-            int Size = 0;
-            lock (buffer)
-            {
-                MappedData data = buffer.Data;
-                CopyToSurface(data.Scan0, data.Size, BackBufferTextureSurface);
-                Size = data.Size;
-            }
-            return Size;
+            CopyToSurface(buffer, BackBufferTextureSurface);
+            return buffer.Size;
         }
 
 

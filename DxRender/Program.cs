@@ -22,31 +22,27 @@ namespace DxRender
             int TestId = 0;
             foreach (string arg in args)
             {
-                int value = 0;
-                if (CommandLine.GetCommandLineValue(arg, CommandLine.CaptureDevice, out value))
-                    CaptureDevice = value;
+                int Value = 0;
+                if (CommandLine.GetCommandLineValue(arg, CommandLine.CaptureDevice, out Value))
+                    CaptureDevice = Value;
 
-                if (CommandLine.GetCommandLineValue(arg, CommandLine.FrameRate, out value))
-                    FrameRate = value;
+                if (CommandLine.GetCommandLineValue(arg, CommandLine.FrameRate, out Value))
+                    FrameRate = Value;
 
-                if (CommandLine.GetCommandLineValue(arg, CommandLine.Width, out value))
-                    Width = value;
+                if (CommandLine.GetCommandLineValue(arg, CommandLine.Width, out Value))
+                    Width = Value;
 
-                if (CommandLine.GetCommandLineValue(arg, CommandLine.Height, out value))
-                    Height = value;
+                if (CommandLine.GetCommandLineValue(arg, CommandLine.Height, out Value))
+                    Height = Value;
 
-                if (CommandLine.GetCommandLineValue(arg, CommandLine.RenderMode, out value))
-                    RenderMode = (RenderMode)value;
+                if (CommandLine.GetCommandLineValue(arg, CommandLine.RenderMode, out Value))
+                    RenderMode = (RenderMode)Value;
 
-                if (CommandLine.GetCommandLineValue(arg, CommandLine.RenderMode, out value))
-                    RenderMode = (RenderMode)value;
+                if (CommandLine.GetCommandLineValue(arg, CommandLine.SourceMode, out Value))
+                    SourceMode = (SourceMode)Value;
 
-                if (CommandLine.GetCommandLineValue(arg, CommandLine.SourceMode, out value))
-                    SourceMode = (SourceMode)value;
-
-                if (CommandLine.GetCommandLineValue(arg, CommandLine.TestMode, out value))
-                    TestId = value;
-
+                if (CommandLine.GetCommandLineValue(arg, CommandLine.TestMode, out Value))
+                    TestId = Value;
             }
 
             if (TestId > 0) Test.CPU2GPU();
@@ -124,7 +120,7 @@ namespace DxRender
                         long len = 0;
                         Stopwatch stopwatch = new Stopwatch();
                         stopwatch.Restart();
-                        int count = 1000;
+                        int count = 500;
                         while (count-- > 0) { len += r.CopyToSurfaceTest(); }
                         long msec = stopwatch.ElapsedMilliseconds;
                         double result = (double)len / (msec / 1000) / (1024 * 1024);
@@ -209,6 +205,8 @@ namespace DxRender
     class FrameReceivedEventArgs : EventArgs
     {
         public double SampleTime { get; set; }
+        public IntPtr Ptr { get; set; }
+        public int Size { get; set; }
     }
 
     class NativeMethods

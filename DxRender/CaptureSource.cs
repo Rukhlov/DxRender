@@ -55,10 +55,10 @@ namespace DxRender
             remove { FrameReceived -= value; }
         }
 
-        private void OnFrameReceived(double Timestamp)
+        private void OnFrameReceived(double Timestamp )
         {
             if (FrameReceived != null)
-                FrameReceived(this, new FrameReceivedEventArgs { SampleTime = Timestamp });
+                FrameReceived(this, new FrameReceivedEventArgs { SampleTime = Timestamp});
         }
         private string CaptureInfo = "";
         string IFrameSource.Info { get { return CaptureInfo; } }
@@ -85,20 +85,21 @@ namespace DxRender
         }
 
 
-        private void Setup(int DeviceNum, int FrameRate, int Width, int Height)
+        private void Setup(int DeviceIndex, int FrameRate, int Width, int Height)
         {
-            DsDevice[] capDevices;
+            DsDevice[] VideoInputDevices = DsDevice.GetDevicesOfCat(FilterCategory.VideoInputDevice);
 
-            capDevices = DsDevice.GetDevicesOfCat(FilterCategory.VideoInputDevice);
-
-            if (DeviceNum + 1 > capDevices.Length)
+            if (VideoInputDevices!=null && VideoInputDevices.Length > 0)
             {
-                throw new Exception("No video capture devices found at that index!");
+                if (DeviceIndex > VideoInputDevices.Length - 1)
+                    DeviceIndex = 0;
             }
+            else
+                throw new Exception("No capture devices found!");
 
             try
             {
-                SetupGraph(capDevices[DeviceNum], FrameRate, Width, Height);
+                SetupGraph(VideoInputDevices[DeviceIndex], FrameRate, Width, Height);
 
                 IsRunning = false;
             }
@@ -137,10 +138,7 @@ namespace DxRender
                 HResult = FilterGraph.AddFilter(baseGrabFlt, "Ds.NET Grabber");
                 DsError.ThrowExceptionForHR(HResult);
 
-                if (FrameRate + Height + Width > 0)
-                {
-                    SetConfigParms(CaptureGraphBuilder, CaptureFilter, FrameRate, Width, Height);
-                }
+                SetConfigParms(CaptureGraphBuilder, CaptureFilter, FrameRate, Width, Height);
 
                 HResult = CaptureGraphBuilder.RenderStream(PinCategory.Capture, MediaType.Video, CaptureFilter, null, baseGrabFlt);
                 DsError.ThrowExceptionForHR(HResult);
@@ -219,6 +217,7 @@ namespace DxRender
             int HResult = 0;
             object ObjectPointer = null;
             HResult = CaptureGraphBuilder.FindInterface(PinCategory.Capture, MediaType.Video, CaptureFilter, typeof(IAMStreamConfig).GUID, out ObjectPointer);
+            DsError.ThrowExceptionForHR(HResult);
 
             IAMStreamConfig VideoStreamConfig = ObjectPointer as IAMStreamConfig;
             if (VideoStreamConfig == null)
@@ -244,11 +243,13 @@ namespace DxRender
 
                 if (VideoInfoHeader.BmiHeader.Width == Width && VideoInfoHeader.BmiHeader.Height == Height)
                 {
+                    if(FrameRate>0)
+                        VideoInfoHeader.AvgTimePerFrame = 10000000 / FrameRate;
+
                     Marshal.StructureToPtr(VideoInfoHeader, MType.formatPtr, true);
                     HResult = VideoStreamConfig.SetFormat(MType);
                     break;
                 }
-
             }
 
             DsUtils.FreeAMMediaType(MType);
@@ -292,16 +293,11 @@ namespace DxRender
             return 0;
         }
 
-       // Stopwatch sw = new Stopwatch();
         int ISampleGrabberCB.BufferCB(double SampleTime, IntPtr Buffer, int BufferLen)
         {
-
             if (BufferLen <= buffer.Size)
             {
-                //sw.Restart();
-
                 NativeMethods.CopyMemory(buffer.Data.Scan0, Buffer, buffer.Size);
-                //Debug.WriteLine(sw.ElapsedMilliseconds);
                 OnFrameReceived(SampleTime);
             }
             else

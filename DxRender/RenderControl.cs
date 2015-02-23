@@ -47,9 +47,9 @@ namespace DxRender
             {
                 //...
             }
-
             base.OnKeyDown(e);
         }
+
         protected override void OnMouseClick(MouseEventArgs e)
         {
             MessageBox.Show(string.Format("OnMouseClick Location: {0},{1}", e.Location.X, e.Location.Y));
