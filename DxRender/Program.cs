@@ -13,11 +13,11 @@ namespace DxRender
         {
             int CaptureDevice = 0;
             int FrameRate = 30;
-            int Width = 640;
-            int Height = 480;
+            int Width = 1920;
+            int Height = 1080;
 
             RenderMode RenderMode = RenderMode.SlimDX;
-            SourceMode SourceMode = SourceMode.DSCap;
+            SourceMode SourceMode = SourceMode.Bitmap;
 
             int TestId = 0;
             foreach (string arg in args)

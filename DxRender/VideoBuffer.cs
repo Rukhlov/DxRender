@@ -83,7 +83,7 @@ namespace DxRender
         public int Stride { get; private set; }
         public int BitsPerPixel { get; private set; }
 
-        public int Size { get { return Height * Stride; } }
+        public int Size { get { return Height * Stride; } } //6220800; } }//
 
 
         public void Dispose()

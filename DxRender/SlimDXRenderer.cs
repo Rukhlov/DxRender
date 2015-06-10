@@ -40,11 +40,16 @@ namespace DxRender
             StartUp();
         }
 
+        System.Drawing.Bitmap TestBmp = null;
         private void StartUp()
         {
+            TestBmp = (System.Drawing.Bitmap)System.Drawing.Bitmap.FromFile("Bitmap\\01.bmp");
             Direct3D9 = new Direct3D();
             AdapterInfo = Direct3D9.Adapters.DefaultAdapter;
-            //var Capabilities= Direct3D9.GetDeviceCaps(0, DeviceType.Hardware);
+
+            var Capabilities= Direct3D9.GetDeviceCaps(0, DeviceType.Hardware);
+
+
             PresentParams = CreatePresentParameters();
 
             //CreateFlags Flags =  CreateFlags.SoftwareVertexProcessing;
@@ -62,6 +67,7 @@ namespace DxRender
                 PresentParams.BackBufferFormat,
                 Pool.Default);
 
+ 
             BackBufferTextureSurface = BackBufferTexture.GetSurfaceLevel(0);
 
             OffscreenSurface = Surface.CreateOffscreenPlain(GraphicDevice,
@@ -76,13 +82,15 @@ namespace DxRender
             DeviceLost = false;
 
             base.FrameSource.FrameReceived += FrameSource_FrameReceived;
+
+            //BackBufferTexture = BitmapToTexture(TestBmp);
         }
 
         private bool IsFullScreen = false;
         private PresentParameters CreatePresentParameters()
         {
             PresentParameters parameters = new PresentParameters();
-            parameters.SwapEffect = SwapEffect.Discard;
+            //parameters.SwapEffect = SwapEffect.Discard;
 
             parameters.DeviceWindowHandle = OwnerHandle;
             if (IsFullScreen == false)
@@ -97,12 +105,13 @@ namespace DxRender
                 parameters.BackBufferWidth = AdapterInfo.CurrentDisplayMode.Width;
                 parameters.BackBufferHeight = AdapterInfo.CurrentDisplayMode.Height;
             }
-            parameters.BackBufferFormat = AdapterInfo.CurrentDisplayMode.Format;
-            parameters.AutoDepthStencilFormat = Format.D16;
-            parameters.Multisample = MultisampleType.None;
-            parameters.MultisampleQuality = 0;
-            parameters.PresentationInterval = PresentInterval.Immediate;
-            parameters.PresentFlags = PresentFlags.Video;
+
+            //parameters.BackBufferFormat = AdapterInfo.CurrentDisplayMode.Format;
+            //parameters.AutoDepthStencilFormat = Format.D16;
+            //parameters.Multisample = MultisampleType.None;
+            //parameters.MultisampleQuality = 0;
+            //parameters.PresentationInterval = PresentInterval.Immediate;
+            //parameters.PresentFlags = PresentFlags.Video;
 
             return parameters;
         }
@@ -112,7 +121,40 @@ namespace DxRender
             Draw();
             PerfCounter.UpdateStatistic(e.SampleTime);
         }
+        /*
+        public override void Draw(bool UpdateSurface = true)
+        {
+            if (GraphicDevice == null) return;
+            if (ReDrawing == true) return;
+            try
+            {
+                ReDrawing = true;
+                GraphicDevice.Clear(ClearFlags.Target | ClearFlags.ZBuffer, GDI.Color.Black, 1.0f, 0);
 
+                GraphicDevice.BeginScene();
+
+                SpriteBatch.Begin(SpriteFlags.AlphaBlend);
+                SpriteBatch.Draw(BackBufferTexture, BackBufferArea, GDI.Color.White);
+                ScreenFont.DrawString(SpriteBatch, PerfCounter.GetReport(), 0, 0, PerfCounter.Styler.Color);
+                SpriteBatch.End();
+
+                
+
+                GraphicDevice.EndScene();
+                GraphicDevice.Present();
+            }
+            catch (Direct3D9Exception ex)
+            {
+                if (ex.ResultCode == ResultCode.DeviceLost)
+                    DeviceLost = true;
+
+                Debug.WriteLine(ex.Message);
+            }
+            finally { ReDrawing = false; }
+            
+        }
+        */
+        
         public override void Draw(bool UpdateSurface = true )
         {
             if (GraphicDevice == null) return;
@@ -142,8 +184,11 @@ namespace DxRender
                 GraphicDevice.BeginScene();
 
                 if (UpdateSurface)
-                    CopyToSurface(buffer, BackBufferTextureSurface);
+                {
+                    CopyToSurface(BackBufferTextureSurface, TestBmp, new System.Drawing.Rectangle(0 ,0 , TestBmp.Width, TestBmp.Height)/*this.ClientRectangle*/);
+                    //CopyToSurface(buffer, BackBufferTextureSurface);
 
+                }
                 if (buffer.UpsideDown)
                 {// если изображение перевернуто
                     SpriteBatch.Begin(SpriteFlags.AlphaBlend);
@@ -177,7 +222,7 @@ namespace DxRender
             }
             finally { ReDrawing = false; }
         }
-
+        
         private void CopyToSurface(IntPtr ptr, int Size, Surface surface)
         {
             lock (surface)
@@ -189,7 +234,7 @@ namespace DxRender
         }
 
         //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
-        private void CopyToSurface(MemoryBuffer buf, Surface surface)
+        private void __CopyToSurface(MemoryBuffer buf, Surface surface)
         {
             lock (buf)
             {
@@ -201,7 +246,7 @@ namespace DxRender
         }
 
 
-        private void CopyToSurface(Surface surface, GDI.Bitmap bitmap, GDI.Rectangle SurfaceArea)
+        private void __CopyToSurface(Surface surface, GDI.Bitmap bitmap, GDI.Rectangle SurfaceArea)
         {
             DataRectangle SurfaceRectangle = surface.LockRectangle(LockFlags.None);
 
@@ -211,6 +256,76 @@ namespace DxRender
             SurfaceRectangle.Data.WriteRange(BitmapRectangle.Scan0, BitmapRectangle.Stride * BitmapRectangle.Height);
             bitmap.UnlockBits(BitmapRectangle);
 
+            surface.UnlockRectangle();
+        }
+
+        private void CopyToSurface(MemoryBuffer buf, Surface surface)
+        {
+            lock (buf)
+            {
+                int bufferSize = buf.Data.Size;
+
+                byte[] bytes = new byte[bufferSize];
+
+                System.Runtime.InteropServices.Marshal.Copy(buf.Data.Scan0, bytes, 0, bytes.Length);
+
+                DataRectangle t_data = surface.LockRectangle(LockFlags.None);
+
+                int NewStride = buf.Width * 4;
+                int RestStride = t_data.Pitch - NewStride;
+                for (int j = 0; j < buf.Height; j++)
+                {
+                    t_data.Data.Write(bytes, j * (NewStride), NewStride);
+                    t_data.Data.Position = t_data.Data.Position + RestStride;
+                }
+
+                surface.UnlockRectangle();
+
+            }
+            
+        }
+
+        private void CopyToSurface(Surface surface, GDI.Bitmap bitmap, GDI.Rectangle SurfaceArea)
+        {
+            GDI.Imaging.BitmapData bitmapData = bitmap.LockBits(SurfaceArea,
+                GDI.Imaging.ImageLockMode.ReadOnly, GDI.Imaging.PixelFormat.Format32bppArgb);
+
+            //SurfaceRectangle.Data.WriteRange(BitmapRectangle.Scan0, BitmapRectangle.Stride * BitmapRectangle.Height);
+
+            int bufferSize = bitmapData.Height * bitmapData.Stride;
+
+            //create data buffer 
+            byte[] bytes = new byte[bufferSize];
+
+            // copy bitmap data into buffer
+            System.Runtime.InteropServices.Marshal.Copy(bitmapData.Scan0, bytes, 0, bytes.Length);
+
+            DataRectangle t_data = surface.LockRectangle(LockFlags.None);
+            //var t_data = _resulttexture.LockRectangle(0, LockFlags.None);
+
+            //int NewStride = bitmap.Width * 4;
+            //int RestStride = t_data.Pitch - NewStride;
+            //for (int j = 0; j < bitmap.Height; j++)
+            //{
+            //    t_data.Data.Write(bytes, j * NewStride, NewStride);
+            //    t_data.Data.Position = t_data.Data.Position + RestStride;
+            //}
+
+            int pitch = ((int)t_data.Pitch / sizeof(ushort));
+            int bitmapPitch = ((int)bitmapData.Stride / sizeof(ushort));
+
+            DataStream d_stream = t_data.Data;
+            unsafe
+            {
+                ushort* to = (ushort*)d_stream.DataPointer;
+                ushort* from = (ushort*)bitmapData.Scan0.ToPointer();
+
+                for (int j = 0; j < bitmap.Height; j++)
+                    for (int i = 0; i < bitmapPitch; i++)
+                        to[i + j * pitch] = from[i + j * bitmapPitch];
+            }
+
+            bitmap.UnlockBits(bitmapData);
             surface.UnlockRectangle();
         }
 

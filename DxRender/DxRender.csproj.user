@@ -3,5 +3,20 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
     <StartArguments>
     </StartArguments>
+    <RemoteDebugEnabled>false</RemoteDebugEnabled>
+    <RemoteDebugMachine>MTSR\Ruhlov@WS33R</RemoteDebugMachine>
+    <StartAction>Project</StartAction>
+    <StartProgram>\\WS33R\RemoteDebug\DxRender.exe</StartProgram>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
+    <RemoteDebugEnabled>false</RemoteDebugEnabled>
+    <RemoteDebugMachine>
+    </RemoteDebugMachine>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'RemoteDebug|AnyCPU'">
+    <StartProgram>\\WS33R\RemoteDebug\DxRender.exe</StartProgram>
+    <StartAction>Program</StartAction>
+    <RemoteDebugMachine>MTSR\Ruhlov@WS33R</RemoteDebugMachine>
+    <RemoteDebugEnabled>true</RemoteDebugEnabled>
   </PropertyGroup>
 </Project>

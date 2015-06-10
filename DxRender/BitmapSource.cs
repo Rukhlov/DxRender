@@ -78,7 +78,7 @@ namespace DxRender
                 var map = buffer.Data;
                 BitmapData bits = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height),
                     ImageLockMode.ReadOnly,
-                    PixelFormat.Format32bppArgb);
+                    /*PixelFormat.Format32bppArgb*/PixelFormat.Format32bppArgb);
 
                 NativeMethods.CopyMemory(map.Scan0, bits.Scan0, map.Size);
                 bitmap.UnlockBits(bits);
