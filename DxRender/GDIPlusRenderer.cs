@@ -44,11 +44,21 @@ namespace DxRender
                     if (buffer.UpsideDown)
                         CurrentBitmap.RotateFlip(RotateFlipType.RotateNoneFlipY);
 
+                    //Rectangle cropRect = new Rectangle(0,0, 320,240 );
+                    //var bitmap = CopyToBitmap();
+                    //CurrentBitmap = bitmap.Clone(cropRect, bitmap.PixelFormat);
+
                     Graphics g = Graphics.FromImage(CurrentBitmap);
+
+                    //Rectangle cropRect = new Rectangle(0,0, 320,240 );
+                    //Bitmap target = CurrentBitmap.Clone(cropRect, CurrentBitmap.PixelFormat);
+                    //graphics.DrawImage(target, ClientRectangle);
+
                     g.DrawString(PerfCounter.GetReport(), PerfCounter.Styler.Font, PerfCounter.Styler.Brush, 0, 0);
                     g.Dispose();
                 }
-                graphics.DrawImage(CurrentBitmap, ClientRectangle);
+               
+                graphics.DrawImage(CurrentBitmap,new Rectangle(0,0, 320,240 ), ClientRectangle, GraphicsUnit.Pixel);
 
                 graphics.Dispose();
             }
@@ -65,6 +75,22 @@ namespace DxRender
                     ImageLockMode.ReadOnly, PixFormat);
                 NativeMethods.CopyMemory(bits.Scan0, data.Scan0, data.Size);
                 CurrentBitmap.UnlockBits(bits);
+            }
+        }
+
+        private Bitmap ___CopyToBitmap()
+        {
+            lock (buffer)
+            {
+                MappedData data = buffer.Data;
+                Bitmap bitmap = new Bitmap(buffer.Width, buffer.Height);
+
+                BitmapData bits = bitmap.LockBits(new Rectangle(0, 0, buffer.Width, buffer.Height),
+                    ImageLockMode.ReadOnly, PixFormat);
+                NativeMethods.CopyMemory(bits.Scan0, data.Scan0, data.Size);
+                bitmap.UnlockBits(bits);
+
+                return bitmap;
             }
         }
 

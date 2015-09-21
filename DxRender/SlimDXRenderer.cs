@@ -106,12 +106,12 @@ namespace DxRender
                 parameters.BackBufferHeight = AdapterInfo.CurrentDisplayMode.Height;
             }
 
-            //parameters.BackBufferFormat = AdapterInfo.CurrentDisplayMode.Format;
-            //parameters.AutoDepthStencilFormat = Format.D16;
-            //parameters.Multisample = MultisampleType.None;
-            //parameters.MultisampleQuality = 0;
-            //parameters.PresentationInterval = PresentInterval.Immediate;
-            //parameters.PresentFlags = PresentFlags.Video;
+            parameters.BackBufferFormat = AdapterInfo.CurrentDisplayMode.Format;
+            parameters.AutoDepthStencilFormat = Format.D16;
+            parameters.Multisample = MultisampleType.None;
+            parameters.MultisampleQuality = 0;
+            parameters.PresentationInterval = PresentInterval.Immediate;
+            parameters.PresentFlags = PresentFlags.Video;
 
             return parameters;
         }
@@ -185,8 +185,8 @@ namespace DxRender
 
                 if (UpdateSurface)
                 {
-                    CopyToSurface(BackBufferTextureSurface, TestBmp, new System.Drawing.Rectangle(0 ,0 , TestBmp.Width, TestBmp.Height)/*this.ClientRectangle*/);
-                    //CopyToSurface(buffer, BackBufferTextureSurface);
+                    //CopyToSurface(BackBufferTextureSurface, TestBmp, new System.Drawing.Rectangle(0 ,0 , TestBmp.Width, TestBmp.Height)/*this.ClientRectangle*/);
+                    CopyToSurface(buffer, BackBufferTextureSurface);
 
                 }
                 if (buffer.UpsideDown)
@@ -202,8 +202,27 @@ namespace DxRender
                 }
                 else
                 {
+                    GDI.Rectangle CropRectangle = new GDI.Rectangle(320, 240, 320, 240); 
+
+                    //GDI.Rectangle CropRectangle = new GDI.Rectangle(BackBufferArea.Location, BackBufferArea.Size);
+
                     SpriteBatch.Begin(SpriteFlags.AlphaBlend);
+
+
+                    float ScaleX = BackBufferArea.Width / CropRectangle.Width;
+                    float ScaleY = BackBufferArea.Height / CropRectangle.Height;
+
+                    float TranslationX =  BackBufferArea.X -CropRectangle.X;
+                    float TranslationY = BackBufferArea.Y - CropRectangle.Y;
+
+                    SpriteBatch.Transform = Matrix.Scaling(ScaleX, ScaleY, 0) * Matrix.Translation(TranslationX, TranslationY, 0);
+
+                    //Vector3 center = new Vector3(BackBufferArea.Width / 2, BackBufferArea.Height / 2, 0f);
+                    //SpriteBatch.Draw(BackBufferTexture, BackBufferArea, center, null, GDI.Color.White);
+
                     SpriteBatch.Draw(BackBufferTexture, BackBufferArea, GDI.Color.White);
+                    
+
                     ScreenFont.DrawString(SpriteBatch, PerfCounter.GetReport(), 0, 0, PerfCounter.Styler.Color);
                     SpriteBatch.End();
 
@@ -246,7 +265,7 @@ namespace DxRender
         }
 
 
-        private void __CopyToSurface(Surface surface, GDI.Bitmap bitmap, GDI.Rectangle SurfaceArea)
+        private void _____CopyToSurface(Surface surface, GDI.Bitmap bitmap, GDI.Rectangle SurfaceArea)
         {
             DataRectangle SurfaceRectangle = surface.LockRectangle(LockFlags.None);
 
@@ -259,6 +278,7 @@ namespace DxRender
             surface.UnlockRectangle();
         }
 
+        //http://stackoverflow.com/questions/16493702/copying-gdi-bitmap-into-directx-texture
         private void CopyToSurface(MemoryBuffer buf, Surface surface)
         {
             lock (buf)
@@ -285,7 +305,45 @@ namespace DxRender
             
         }
 
-        private void CopyToSurface(Surface surface, GDI.Bitmap bitmap, GDI.Rectangle SurfaceArea)
+        unsafe private void CopyToSurface(Surface surface, GDI.Bitmap bitmap, GDI.Rectangle SurfaceArea)
+        {
+            GDI.Imaging.BitmapData bitmapData = bitmap.LockBits(SurfaceArea,
+                GDI.Imaging.ImageLockMode.ReadOnly, GDI.Imaging.PixelFormat.Format32bppArgb);
+
+            int bitsPerPixel = 24;
+            int Stride = 4 * ((bitmapData.Width * ((bitsPerPixel + 7) / 8) + 3) / 4);
+
+            int bufferSize = bitmapData.Height * Stride;//bitmapData.Stride;
+            byte[] bytes = new byte[bufferSize];
+            System.Runtime.InteropServices.Marshal.Copy(bitmapData.Scan0, bytes, 0, bytes.Length);
+            DataRectangle t_data = surface.LockRectangle(LockFlags.None);
+            int NewStride = bitmap.Width * 4;
+            int RestStride = t_data.Pitch - NewStride;
+            for (int j = 0; j < bitmap.Height; j++)
+            {
+                t_data.Data.Write(bytes, j * (NewStride), NewStride);
+                t_data.Data.Position = t_data.Data.Position + RestStride;
+            }
+
+            //DataRectangle t_data = surface.LockRectangle(LockFlags.None);
+
+            //int pitch = ((int)t_data.Pitch / sizeof(ushort));
+            //int bitmapPitch = ((int)bitmapData.Stride / sizeof(ushort));
+
+            //DataStream d_stream = t_data.Data;
+            //ushort* to = (ushort*)d_stream.DataPointer;
+            //ushort* from = (ushort*)bitmapData.Scan0.ToPointer();
+
+            //for (int j = 0; j < bitmap.Height; j++)
+            //    for (int i = 0; i < bitmapPitch; i++)
+            //        to[i + j * pitch] = from[i + j * bitmapPitch];
+
+            bitmap.UnlockBits(bitmapData);
+
+            surface.UnlockRectangle();
+        }
+
+        private void ___CopyToSurface(Surface surface, GDI.Bitmap bitmap, GDI.Rectangle SurfaceArea)
         {
             GDI.Imaging.BitmapData bitmapData = bitmap.LockBits(SurfaceArea,
                 GDI.Imaging.ImageLockMode.ReadOnly, GDI.Imaging.PixelFormat.Format32bppArgb);

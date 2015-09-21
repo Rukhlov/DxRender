@@ -50,6 +50,23 @@ namespace DxRender
             base.OnKeyDown(e);
         }
 
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            base.OnMouseUp(e);
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            
+            base.OnMouseMove(e);
+        }
+
+
         protected override void OnMouseClick(MouseEventArgs e)
         {
             MessageBox.Show(string.Format("OnMouseClick Location: {0},{1}", e.Location.X, e.Location.Y));
