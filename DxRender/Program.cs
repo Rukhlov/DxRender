@@ -13,11 +13,11 @@ namespace DxRender
         {
             int CaptureDevice = 0;
             int FrameRate = 30;
-            int Width = 640;
-            int Height = 480;
+            int Width = 1920;
+            int Height = 1080;
 
             RenderMode RenderMode = RenderMode.SlimDX;
-            SourceMode SourceMode = SourceMode.Bitmap;
+            SourceMode SourceMode = SourceMode.DSCap;
 
             int TestId = 0;
             foreach (string arg in args)
@@ -61,8 +61,8 @@ namespace DxRender
 
             Form form = new Form
             {
-                Width = source.VideoBuffer.Width,
-                Height = source.VideoBuffer.Height,
+                Width = 640,//source.VideoBuffer.Width,
+                Height = 480,//source.VideoBuffer.Height,
                 Text = source.Info
             };
 
@@ -180,6 +180,16 @@ namespace DxRender
         protected volatile bool ReDrawing = false;
 
         public abstract void Draw(bool UpdateSurface = true);
+
+        public virtual void SetRectangle(Rectangle Rect)
+        {
+
+        }
+
+        public virtual void Execute(string Command, params object [] Parameters)
+        {
+
+        }
 
         public virtual void Dispose()
         {
