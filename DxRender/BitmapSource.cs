@@ -10,8 +10,8 @@ namespace DxRender
         public BitmapSource(int Width, int Height)
         {
             TestBMP = new Bitmap[] { 
-                new Bitmap(Bitmap.FromFile("bitmap\\01.bmp"),  Width, Height),//1920, 1080),
-                //new Bitmap(Bitmap.FromFile("bitmap\\02.bmp"), Width, Height),
+                //new Bitmap(Bitmap.FromFile("bitmap\\04.bmp"),  Width, Height),//1920, 1080),
+                new Bitmap(Bitmap.FromFile("bitmap\\02.bmp"), Width, Height),
                 //new Bitmap(Bitmap.FromFile("bitmap\\03.bmp"), Width, Height)
             };
             buffer = new MemoryBuffer(TestBMP[0].Width, TestBMP[0].Height, 32);

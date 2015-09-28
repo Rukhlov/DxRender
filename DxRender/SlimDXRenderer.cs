@@ -69,8 +69,8 @@ namespace DxRender
             Direct3D9 = new Direct3D();
             AdapterInfo = Direct3D9.Adapters.DefaultAdapter;
 
-            var Capabilities= Direct3D9.GetDeviceCaps(0, DeviceType.Hardware);
-            
+            var Capabilities = Direct3D9.GetDeviceCaps(0, DeviceType.Hardware);
+
 
             PresentParams = CreatePresentParameters();
 
@@ -81,31 +81,34 @@ namespace DxRender
 
             SpriteBatch = new Sprite(GraphicDevice);
 
+
+            //BackBufferTexture = Texture.FromFile(GraphicDevice, "d:\\01.bmp", Usage.Dynamic, Pool.Default);
+
             BackBufferTexture = new Texture(GraphicDevice,
                 Width,//PresentParams.BackBufferWidth,
                 Height,//PresentParams.BackBufferHeight,
-                0,
+                1,
                 Usage.Dynamic,
                 PresentParams.BackBufferFormat,
                 Pool.Default);
 
- 
+
             BackBufferTextureSurface = BackBufferTexture.GetSurfaceLevel(0);
 
-            OffscreenSurface = Surface.CreateOffscreenPlain(GraphicDevice,
-                Width,//PresentParams.BackBufferWidth,
-                Height,//PresentParams.BackBufferHeight,
-                PresentParams.BackBufferFormat,
-                Pool.Default);
+            //OffscreenSurface = Surface.CreateOffscreenPlain(GraphicDevice,
+            //    Width,//PresentParams.BackBufferWidth,
+            //    Height,//PresentParams.BackBufferHeight,
+            //    PresentParams.BackBufferFormat,
+            //    Pool.Default);
 
             ScreenFont = new Font(GraphicDevice, PerfCounter.Styler.Font);
 
-            VertexElement[]  vertexElems = new[] {
+            VertexElement[] VertexElems = new[] {
             	new VertexElement(0, 0,  DeclarationType.Float2, DeclarationMethod.Default, DeclarationUsage.PositionTransformed, 0),
         		new VertexElement(0, 8, DeclarationType.UByte4N, DeclarationMethod.Default, DeclarationUsage.Color, 0),
 				VertexElement.VertexDeclarationEnd };
 
-            GraphicDevice.VertexDeclaration = new VertexDeclaration(GraphicDevice, vertexElems);
+            GraphicDevice.VertexDeclaration = new VertexDeclaration(GraphicDevice, VertexElems);
 
             BackBufferArea = new GDI.Rectangle(0, 0, PresentParams.BackBufferWidth, PresentParams.BackBufferHeight);
             DeviceLost = false;
@@ -125,6 +128,7 @@ namespace DxRender
             GraphicDevice.SetRenderState(RenderState.SourceBlendAlpha, Blend.SourceAlpha);
 
             GraphicDevice.SetRenderState(RenderState.AntialiasedLineEnable, false);
+
             GraphicDevice.SetRenderState(RenderState.AlphaBlendEnable, true);
             GraphicDevice.SetRenderState(RenderState.AlphaTestEnable, true);
             GraphicDevice.SetRenderState(RenderState.SeparateAlphaBlendEnable, true);
@@ -162,7 +166,14 @@ namespace DxRender
             GraphicDevice.SetRenderState(RenderState.ZEnable, ZBufferType.DontUseZBuffer);
             GraphicDevice.SetRenderState(RenderState.ZWriteEnable, false);
 
+
             
+
+            //GraphicDevice.SetSamplerState(0, SamplerState.MagFilter, TextureFilter.None);
+            //GraphicDevice.SetSamplerState(0, SamplerState.MinFilter, TextureFilter.Linear);
+
+           // GraphicDevice.SetSamplerState(0, SamplerState.MipFilter, TextureFilter.None);
+
         }
 
         private bool IsFullScreen = false;
@@ -200,6 +211,8 @@ namespace DxRender
             Draw();
             PerfCounter.UpdateStatistic(e.SampleTime);
         }
+
+
         /*
         public override void Draw(bool UpdateSurface = true)
         {
@@ -235,7 +248,7 @@ namespace DxRender
         */
         GDI.RectangleF CropRectangle;// = new GDI.Rectangle(0, 0, 640, 480);
 
-        public override void Draw(bool UpdateSurface = true )
+        public override void Draw(bool UpdateSurface = true)
         {
             if (GraphicDevice == null) return;
             if (ReDrawing == true) return;
@@ -263,7 +276,7 @@ namespace DxRender
 
                 GraphicDevice.BeginScene();
 
-                
+
                 if (UpdateSurface)
                 {
                     //CopyToSurface(BackBufferTextureSurface, TestBmp, new System.Drawing.Rectangle(0 ,0 , TestBmp.Width, TestBmp.Height)/*this.ClientRectangle*/);
@@ -276,10 +289,11 @@ namespace DxRender
 
                 if (DisplayRectangle.Width != Width || DisplayRectangle.Height != Height)
                 {
-                    float ControlScaleX = (float)DisplayRectangle.Width / Width;//BackBufferArea.Width;
-                    float ControlScaleY = (float)DisplayRectangle.Height / Height;//BackBufferArea.Height;
+                    float ControlScaleX = (float)DisplayRectangle.Width / Width; //BackBufferArea.Width;
+                    float ControlScaleY = (float)DisplayRectangle.Height / Height; //BackBufferArea.Height;
 
                     Transform = Matrix.Scaling(ControlScaleX, ControlScaleY, 1);
+                    //Transform = Matrix.Scaling(0.3f, 0.3f, 1);
                 }
 
                 if (buffer.UpsideDown)
@@ -287,19 +301,30 @@ namespace DxRender
                     Transform = Matrix.Translation(-Width, -Height, 0) * Matrix.RotationZ((float)Math.PI) * Transform;
                 }
 
-                SpriteBatch.Begin(SpriteFlags.AlphaBlend);
                 
+                SpriteBatch.Begin(SpriteFlags.AlphaBlend);
+
                 SpriteBatch.Transform = Transform;
                 SpriteBatch.Draw(BackBufferTexture, BackBufferArea, GDI.Color.White);
+
+                //SpriteBatch.Draw(BackBufferTexture, new GDI.Rectangle(0,0,100,100), GDI.Color.White);
 
                 // возвращаем все как было и рисуем дальше
                 SpriteBatch.Transform = Matrix.Identity;
 
-                ScreenFont.DrawString(SpriteBatch, PerfCounter.GetReport(), 0, 0, PerfCounter.Styler.Color);           
+                ScreenFont.DrawString(SpriteBatch, PerfCounter.GetReport(), 0, 0, PerfCounter.Styler.Color);
 
                 SpriteBatch.End();
-                
-                DrawRectangle(SelectionRectangle);
+
+                DrawFilledRectangle(SelectionRectangle, 0x3FFF0000);
+
+                //DrawRectangle(SelectionRectangle, 0xFFFF0000);
+
+
+                //DrawLine(DisplayRectangle.Width / 2, 0, DisplayRectangle.Width / 2, DisplayRectangle.Height, 0xFF0000FF);
+                //DrawLine(0, DisplayRectangle.Height/2, DisplayRectangle.Width , DisplayRectangle.Height/2, 0xFF0000FF);
+
+
 
                 #region MyRegion
                 //if (buffer.UpsideDown)
@@ -397,8 +422,9 @@ namespace DxRender
             finally { ReDrawing = false; }
         }
 
-        GDI.Rectangle SelectionRectangle = new GDI.Rectangle();
 
+
+        GDI.Rectangle SelectionRectangle = new GDI.Rectangle();
         public override void Execute(string Command, params object[] Parameters)
         {
             switch (Command)
@@ -413,132 +439,97 @@ namespace DxRender
                     break;
             }
         }
-        public void DrawRectangle(GDI.Rectangle Rectangle)
+
+
+        public void DrawFilledRectangle(GDI.Rectangle Rectangle, uint Color)
         {
             if (Rectangle.IsEmpty) return;
 
-            //GDI.Rectangle ControlDisplayRectangle = control.DisplayRectangle; //new GDI.Rectangle(110, 30, 148, 65);
+            Vertex[] data = new Vertex[5];
+            data[0].Position.X = Rectangle.Left;
+            data[0].Position.Y = Rectangle.Top;
+            data[0].Color = Color;
 
-            //float ControlScaleX = (float)BackBufferArea.Width / ControlDisplayRectangle.Width;
-            //float ControlScaleY = (float)BackBufferArea.Height / ControlDisplayRectangle.Height;
+            data[1].Position.X = Rectangle.Right;
+            data[1].Position.Y = Rectangle.Top;
+            data[1].Color = Color;
 
+            data[2].Position.X = Rectangle.Left;
+            data[2].Position.Y = Rectangle.Bottom;
+            data[2].Color = Color;
 
-            GDI.Rectangle ControlDisplayRectangle = control.DisplayRectangle;
+            data[3].Position.X = Rectangle.Right;
+            data[3].Position.Y = Rectangle.Bottom;
+            data[3].Color = Color;
 
-            float ControlScaleX = 1;//(float)ControlDisplayRectangle.Width / BackBufferArea.Width;
-            float ControlScaleY = 1;//(float)ControlDisplayRectangle.Height / BackBufferArea.Height;
+            data[4].Position.X = Rectangle.Left;
+            data[4].Position.Y = Rectangle.Top;
+            data[4].Color = Color;
 
-            GDI.RectangleF CropRectangle = new GDI.RectangleF(Rectangle.X * ControlScaleX, Rectangle.Y * ControlScaleY,
-                Rectangle.Width * ControlScaleX, Rectangle.Height * ControlScaleY);
-
-
-            Vertex[] v = new Vertex[5];
-            v[0].Position.X = CropRectangle.X;
-            v[0].Position.Y = CropRectangle.Y;
-            v[0].Color = 0x3FFF0000;
-
-            v[1].Position.X = CropRectangle.X + CropRectangle.Width;
-            v[1].Position.Y = CropRectangle.Y;
-            v[1].Color = 0x3FFF0000;
-
-            v[3].Position.X = CropRectangle.X + CropRectangle.Width;
-            v[3].Position.Y = CropRectangle.Y + CropRectangle.Height;
-            v[3].Color = 0x3FFF0000;
-
-            v[2].Position.X = CropRectangle.X;
-            v[2].Position.Y = CropRectangle.Y + CropRectangle.Height;
-            v[2].Color = 0x3FFF0000;
-
-            v[4].Position.X = CropRectangle.X;
-            v[4].Position.Y = CropRectangle.Y;
-            v[4].Color = 0x3FFF0000;
-
-            GraphicDevice.DrawUserPrimitives(PrimitiveType.TriangleStrip, 0, 2, v);
+            GraphicDevice.DrawUserPrimitives(PrimitiveType.TriangleStrip, 0, 2, data);
 
         }
 
-        public void __DrawRectangle(GDI.Rectangle Rectangle)
+        public void DrawRectangle(GDI.Rectangle Rectangle, uint Color)
         {
             if (Rectangle.IsEmpty) return;
 
-            //GDI.Rectangle ControlDisplayRectangle = control.DisplayRectangle; //new GDI.Rectangle(110, 30, 148, 65);
-
-            //float ControlScaleX = (float)BackBufferArea.Width / ControlDisplayRectangle.Width;
-            //float ControlScaleY = (float)BackBufferArea.Height / ControlDisplayRectangle.Height;
-
-
-            GDI.Rectangle ControlDisplayRectangle = control.DisplayRectangle;
-
-            float ControlScaleX = 1;//(float)ControlDisplayRectangle.Width / BackBufferArea.Width;
-            float ControlScaleY = 1;//(float)ControlDisplayRectangle.Height / BackBufferArea.Height;
-
-            GDI.RectangleF CropRectangle = new GDI.RectangleF(Rectangle.X * ControlScaleX, Rectangle.Y * ControlScaleY,
-                Rectangle.Width * ControlScaleX, Rectangle.Height * ControlScaleY);
-
-
             Vertex[] v = new Vertex[5];
-            v[0].Position.X = CropRectangle.X;
-            v[0].Position.Y = CropRectangle.Y;
-            v[0].Color = 0xFFFF0000;
+            v[0].Position.X = Rectangle.Left;
+            v[0].Position.Y = Rectangle.Top;
+            v[0].Color = Color;
 
-            v[1].Position.X = CropRectangle.X + CropRectangle.Width;
-            v[1].Position.Y = CropRectangle.Y;
-            v[1].Color = 0xFFFF0000;
+            v[1].Position.X = Rectangle.Right;
+            v[1].Position.Y = Rectangle.Top;
+            v[1].Color = Color;
 
-            v[2].Position.X = CropRectangle.X + CropRectangle.Width;
-            v[2].Position.Y = CropRectangle.Y + CropRectangle.Height;
-            v[2].Color = 0xFFFF0000;
+            v[2].Position.X = Rectangle.Right;
+            v[2].Position.Y = Rectangle.Bottom;
+            v[2].Color = Color;
 
-            v[3].Position.X = CropRectangle.X;
-            v[3].Position.Y = CropRectangle.Y + CropRectangle.Height;
-            v[3].Color = 0xFFFF0000;
+            v[3].Position.X = Rectangle.Left;
+            v[3].Position.Y = Rectangle.Bottom;
+            v[3].Color = Color;
 
-            v[4].Position.X = CropRectangle.X;
-            v[4].Position.Y = CropRectangle.Y;
-            v[4].Color = 0xFFFF0000;
+            v[4].Position.X = Rectangle.Left;
+            v[4].Position.Y = Rectangle.Top;
+            v[4].Color = Color;
 
-            GraphicDevice.DrawUserPrimitives(PrimitiveType.LineStrip, 0, v.Count()-1, v);
+            GraphicDevice.DrawUserPrimitives(PrimitiveType.LineStrip, 0, v.Count() - 1, v);
+        }
+
+
+        public void DrawLine(int x1, int y1, int x2, int y2, uint Color)
+        {
+            Vertex[] data = new Vertex[2];
+
+            data[0].Position.X = x1;
+            data[0].Position.Y = y1;
+            data[0].Color = Color;
+
+            data[1].Position.X = x2;
+            data[1].Position.Y = y2;
+            data[1].Color = Color;
+
+            GraphicDevice.DrawUserPrimitives(PrimitiveType.LineList, 0, 1, data);
 
         }
 
-        public void PolyLine(System.Drawing.Point [] points, int Count)
+        public void PolyLine(System.Drawing.Point[] points, uint Color)
         {
+            int Count = points.Count();
 
-            //if (Captured == true)
+            if (Count < 2) return;
+            Vertex[] data = new Vertex[Count];
+            for (int i = 0; i < Count; i++)
             {
-                if (Count < 2) return;
-                Vertex[] v = new Vertex[6000];
-                for (int i = 0; i < Count; i++)
-                {
-                    v[i].Position.X = points[i].X;
-                    v[i].Position.Y = points[i].Y;
-                    v[i].Color = 0;
-                }
-
-
-                /*DataStream ds = poly_vertices.Lock(0, Count * VertexStrideBytes, LockFlags.Discard);
-                // ds.Position = 0;
-
-                for (int i = 0; i < Count; i++)
-                {
-                    v[i].Position.X = points[i].x;
-                    v[i].Position.Y = points[i].y;
-                    v[i].Color = PenColor;
-                }
-                ds.WriteRange(v, 0, Count);
-
-                //for (int i = 0; i < Count; i++)
-                //ds.Write<Vertex>(new Vertex(points[i].x, points[i].y, PenColor));
-
-                //Заполнение массива и загрузка или загрузка по одной точке по скорости одинаково
-                //Но в этом случае хоть не надо создавать дополнительные массивы
-
-                poly_vertices.Unlock();
-
-                graphicDevice.SetStreamSource(0, poly_vertices, 0, VertexStrideBytes);*/
-                GraphicDevice.DrawUserPrimitives(PrimitiveType.LineStrip, 0, Count - 1, v);
+                data[i].Position.X = points[i].X;
+                data[i].Position.Y = points[i].Y;
+                data[i].Color = Color;
             }
-        }//Line
+            GraphicDevice.DrawUserPrimitives(PrimitiveType.LineStrip, 0, Count - 1, data);
+
+        }
 
         GDI.RectangleF BitmapRectangle = new GDI.RectangleF();
 
@@ -607,7 +598,7 @@ namespace DxRender
         }
 
         //http://stackoverflow.com/questions/16493702/copying-gdi-bitmap-into-directx-texture
-        private void CopyToSurface(MemoryBuffer buf, Surface surface)
+        private void __CopyToSurface____(MemoryBuffer buf, Surface surface)
         {
             lock (buf)
             {
@@ -615,8 +606,9 @@ namespace DxRender
 
                 byte[] bytes = new byte[bufferSize];
 
+
                 System.Runtime.InteropServices.Marshal.Copy(buf.Data.Scan0, bytes, 0, bytes.Length);
-                
+
                 DataRectangle t_data = surface.LockRectangle(LockFlags.None);
 
                 int NewStride = buf.Width * 4;
@@ -630,8 +622,42 @@ namespace DxRender
                 surface.UnlockRectangle();
 
             }
-            
+
         }
+
+        private void CopyToSurface(MemoryBuffer buf, Surface surface)
+        {
+            lock (buf)
+            {
+                int bufferSize = buf.Data.Size;
+
+                byte[] bytes = new byte[bufferSize];
+
+
+                System.Runtime.InteropServices.Marshal.Copy(buf.Data.Scan0, bytes, 0, bytes.Length);
+
+                DataRectangle t_data = BackBufferTexture.LockRectangle(0, LockFlags.None);//surface.LockRectangle(LockFlags.None);
+                //t_data.Data.Position = 0;
+                int NewStride = buf.Width * 4;
+                int RestStride = t_data.Pitch - NewStride;
+                for (int j = 0; j < buf.Height; j++)
+                {
+                    
+                    int Offset = j * (NewStride);
+
+                    t_data.Data.Write(bytes, Offset, NewStride);
+                    t_data.Data.Position = t_data.Data.Position + RestStride;
+                }
+                BackBufferTexture.UnlockRectangle(0);
+
+                //GraphicDevice.SetTexture(1, BackBufferTexture);
+                //surface.UnlockRectangle();
+
+            }
+
+        }
+
+
 
         unsafe private void CopyToSurface(Surface surface, GDI.Bitmap bitmap, GDI.Rectangle SurfaceArea)
         {
