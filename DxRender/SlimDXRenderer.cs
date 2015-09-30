@@ -33,6 +33,7 @@ namespace DxRender
 
         private MemoryBuffer buffer = null;
 
+        GDI.RectangleF CurrentViewRectangle;
 
         private Control control = null;
         public SlimDXRenderer(IntPtr Handle, IFrameSource FrameSource)
@@ -84,12 +85,13 @@ namespace DxRender
 
             //BackBufferTexture = Texture.FromFile(GraphicDevice, "d:\\01.bmp", Usage.Dynamic, Pool.Default);
 
+            // TODO: текстура должна настраиватся в зависимости от размеров и формата битмапа
             BackBufferTexture = new Texture(GraphicDevice,
-                Width,//PresentParams.BackBufferWidth,
-                Height,//PresentParams.BackBufferHeight,
+                Width, 
+                Height,//!!!
                 1,
                 Usage.Dynamic,
-                PresentParams.BackBufferFormat,
+                Format.X8R8G8B8, 
                 Pool.Default);
 
 
@@ -117,8 +119,8 @@ namespace DxRender
 
 
 
-            BitmapRectangle = BackBufferArea;
-            CropRectangle = BackBufferArea;
+            //BitmapRectangle = new GDI.RectangleF BackBufferArea;
+            CurrentViewRectangle = new GDI.RectangleF(0, 0, Width, Height);
 
             GraphicDevice.SetRenderState(RenderState.AntialiasedLineEnable, false);
 
@@ -246,7 +248,6 @@ namespace DxRender
             
         }
         */
-        GDI.RectangleF CropRectangle;// = new GDI.Rectangle(0, 0, 640, 480);
 
         public override void Draw(bool UpdateSurface = true)
         {
@@ -284,17 +285,29 @@ namespace DxRender
 
                 }
 
-                GDI.Rectangle DisplayRectangle = control.DisplayRectangle;
+                GDI.Rectangle ControlRectangle = control.ClientRectangle; //control.DisplayRectangle;
                 Matrix Transform = Matrix.Identity;
 
-                if (DisplayRectangle.Width != Width || DisplayRectangle.Height != Height)
+                if (ControlRectangle.Width != Width || ControlRectangle.Height != Height)
                 {
-                    float ControlScaleX = (float)DisplayRectangle.Width / Width; //BackBufferArea.Width;
-                    float ControlScaleY = (float)DisplayRectangle.Height / Height; //BackBufferArea.Height;
+                    if (CurrentViewRectangle.IsEmpty == false)
+                    {
+                        float ScaleX = (float)ControlRectangle.Width / CurrentViewRectangle.Width;
+                        float ScaleY = (float)ControlRectangle.Height / CurrentViewRectangle.Height; 
 
-                    Transform = Matrix.Scaling(ControlScaleX, ControlScaleY, 1);
-                    //Transform = Matrix.Scaling(0.3f, 0.3f, 1);
+                        Transform = Matrix.Translation(-CurrentViewRectangle.X, -CurrentViewRectangle.Y, 0) * Matrix.Scaling(ScaleX, ScaleY, 1);
+                    }
+                    else
+                    {
+                        float ControlScaleX = (float)ControlRectangle.Width / Width; //BackBufferArea.Width;
+                        float ControlScaleY = (float)ControlRectangle.Height / Height; //BackBufferArea.Height;
+
+                        Transform = Matrix.Scaling(ControlScaleX, ControlScaleY, 1);
+                        //Transform = Matrix.Scaling(0.3f, 0.3f, 1);
+                    }
+
                 }
+
 
                 if (buffer.UpsideDown)
                 {// поворачивем изображение на 180 град, со смещением
@@ -303,6 +316,9 @@ namespace DxRender
 
                 
                 SpriteBatch.Begin(SpriteFlags.AlphaBlend);
+
+
+
 
                 SpriteBatch.Transform = Transform;
                 SpriteBatch.Draw(BackBufferTexture, BackBufferArea, GDI.Color.White);
@@ -316,7 +332,9 @@ namespace DxRender
 
                 SpriteBatch.End();
 
-                DrawFilledRectangle(SelectionRectangle, 0x3FFF0000);
+                uint SelectionColor = 0x3FFF0000;
+                if(SelectionRectangle.IsEmpty==false) DrawFilledRectangle(SelectionRectangle, SelectionColor);
+
 
                 //DrawRectangle(SelectionRectangle, 0xFFFF0000);
 
@@ -406,7 +424,7 @@ namespace DxRender
 
                 GraphicDevice.EndScene();
 
-                GraphicDevice.Present(DisplayRectangle, DisplayRectangle);
+                GraphicDevice.Present(ControlRectangle, ControlRectangle);
 
                 //GraphicDevice.Present();
 
@@ -433,6 +451,27 @@ namespace DxRender
                     GDI.Rectangle Rect = (GDI.Rectangle)Parameters[0];
                     SelectionRectangle = Rect;
 
+                    break;
+                
+
+                case "MousePan":
+
+                    GDI.Point StartPoint = (GDI.Point)Parameters[0];
+                    GDI.Point EndPoint = (GDI.Point)Parameters[1];
+
+                    GDI.Rectangle ControlRectangle = control.ClientRectangle;
+
+                    float ScaleX = (float)CurrentViewRectangle.Width / ControlRectangle.Width;
+                    float ScaleY = (float)CurrentViewRectangle.Height / ControlRectangle.Height;
+
+                    float TranslationX = (-(EndPoint.X - StartPoint.X) * ScaleX + CurrentViewRectangle.X);
+                    float TranslationY = (-(EndPoint.Y - StartPoint.Y) * ScaleY + CurrentViewRectangle.Y);
+
+
+                    CurrentViewRectangle = new GDI.RectangleF(TranslationX, TranslationY, CurrentViewRectangle.Width, CurrentViewRectangle.Height);
+
+
+                    Debug.WriteLine("Strat = {0} End = {1}", StartPoint, EndPoint);
                     break;
 
                 default:
@@ -531,32 +570,33 @@ namespace DxRender
 
         }
 
-        GDI.RectangleF BitmapRectangle = new GDI.RectangleF();
-
         public override void SetRectangle(GDI.Rectangle Rect)
         {
             SelectionRectangle = new GDI.Rectangle();
+
             if (Rect.IsEmpty)
             {
-                CropRectangle = BackBufferArea;
+                CurrentViewRectangle = new GDI.RectangleF();//BackBufferArea;
                 return;
+            }
+            else
+            {
+                if(CurrentViewRectangle.IsEmpty)
+                    CurrentViewRectangle = new GDI.RectangleF(0, 0, Width, Height);
             }
 
             GDI.Rectangle ControlRectangle = control.ClientRectangle;
-            BitmapRectangle = CropRectangle; //new GDI.RectangleF(0,0, CropRectangle.Width, CropRectangle.Height);
 
-            float ScaleX = (float)BitmapRectangle.Width / ControlRectangle.Width;
-            float ScaleY = (float)BitmapRectangle.Height / ControlRectangle.Height;
+            float ScaleX = (float)CurrentViewRectangle.Width / ControlRectangle.Width;
+            float ScaleY = (float)CurrentViewRectangle.Height / ControlRectangle.Height;
 
-            float TranslationX = (Rect.X + BitmapRectangle.X);
-            float TranslationY = (Rect.Y + BitmapRectangle.Y);
+            float TranslationX = (Rect.X * ScaleX + CurrentViewRectangle.X);
+            float TranslationY = (Rect.Y * ScaleY + CurrentViewRectangle.Y);
 
-            CropRectangle = new GDI.RectangleF(TranslationX, TranslationY,
+            CurrentViewRectangle = new GDI.RectangleF(TranslationX, TranslationY,
                 Rect.Width * ScaleX, Rect.Height * ScaleY);
 
-            //BitmapRectangle = CropRectangle;
-
-            Debug.WriteLine(CropRectangle.ToString());
+            Debug.WriteLine(CurrentViewRectangle.ToString());
 
             base.SetRectangle(Rect);
         }
@@ -636,22 +676,18 @@ namespace DxRender
 
                 System.Runtime.InteropServices.Marshal.Copy(buf.Data.Scan0, bytes, 0, bytes.Length);
 
-                DataRectangle t_data = BackBufferTexture.LockRectangle(0, LockFlags.None);//surface.LockRectangle(LockFlags.None);
-                //t_data.Data.Position = 0;
+                DataRectangle t_data = surface.LockRectangle(LockFlags.None);
+
                 int NewStride = buf.Width * 4;
                 int RestStride = t_data.Pitch - NewStride;
                 for (int j = 0; j < buf.Height; j++)
-                {
-                    
+                {              
                     int Offset = j * (NewStride);
 
                     t_data.Data.Write(bytes, Offset, NewStride);
                     t_data.Data.Position = t_data.Data.Position + RestStride;
                 }
-                BackBufferTexture.UnlockRectangle(0);
-
-                //GraphicDevice.SetTexture(1, BackBufferTexture);
-                //surface.UnlockRectangle();
+                surface.UnlockRectangle();
 
             }
 

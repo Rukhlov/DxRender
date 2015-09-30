@@ -17,7 +17,7 @@ namespace DxRender
             int Height = 1080;
 
             RenderMode RenderMode = RenderMode.SlimDX;
-            SourceMode SourceMode = SourceMode.DSCap;
+            SourceMode SourceMode = SourceMode.Bitmap;
 
             int TestId = 0;
             foreach (string arg in args)
