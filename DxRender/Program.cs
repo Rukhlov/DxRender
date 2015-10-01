@@ -63,20 +63,26 @@ namespace DxRender
             {
                 Width = 640,//source.VideoBuffer.Width,
                 Height = 480,//source.VideoBuffer.Height,
+                BackColor= Color.Black,
                 Text = source.Info
             };
 
+            
             form.Controls.Add(control);
+
+            //control.ControlAspectRatio();
 
             form.FormClosing += (o, e) =>
             {
                 if (source != null)
                     source.Stop();
             };
+
             source.Start();
 
             Application.ApplicationExit += (o, a) => { };
             Application.Run(form);
+
         }
 
         class CommandLine

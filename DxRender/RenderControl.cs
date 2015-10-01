@@ -55,7 +55,7 @@ namespace DxRender
         protected override void OnMouseDoubleClick(MouseEventArgs e)
         {
             if (e.Button == System.Windows.Forms.MouseButtons.Left)
-                Renderer.SetRectangle(new Rectangle());
+                Renderer.Execute("SetSelection", new Rectangle());
 
             base.OnMouseDoubleClick(e);
         }
@@ -63,6 +63,7 @@ namespace DxRender
         Point StartPoint = new Point();
         Point EndPoint = new Point();
 
+        Point MovePoint = new Point();
 
         protected override void OnMouseDown(MouseEventArgs e)
         {
@@ -84,24 +85,25 @@ namespace DxRender
                 {
                     Rectangle SelectionRectangle = GetSelectionRectangle();
 
-                    Renderer.SetRectangle(SelectionRectangle);
+                    Renderer.Execute("SetSelection", SelectionRectangle);
 
-
-                    StartPoint = new Point();
-                    EndPoint = new Point();
-
-                    Debug.WriteLine("OnMouseUp" + SelectionRectangle.ToString());
-
+                    //Debug.WriteLine("OnMouseUp" + SelectionRectangle.ToString());
                 }
+
+                StartPoint = new Point();
+                EndPoint = new Point();
             }
+
             if (e.Button == System.Windows.Forms.MouseButtons.Right)
             {
                 this.Cursor = Cursors.Default;
+                StartPoint = new Point();
             }
 
             base.OnMouseUp(e);
         }
 
+        
         protected override void OnMouseMove(MouseEventArgs e)
         {
             if (e.Button == System.Windows.Forms.MouseButtons.Left)
@@ -115,9 +117,22 @@ namespace DxRender
 
             if (e.Button == System.Windows.Forms.MouseButtons.Right)
             {
-                EndPoint = e.Location;
+                Point MouseLocation = e.Location;
 
-                Renderer.Execute("MousePan", StartPoint, EndPoint);
+                if (MouseLocation.X < 0) MouseLocation.X = 0;
+                if (MouseLocation.Y < 0) MouseLocation.Y = 0;
+
+                if (MouseLocation.X > this.Width) MouseLocation.X = this.Width;
+                if (MouseLocation.Y > this.Height) MouseLocation.Y = this.Height;
+
+                if (StartPoint.IsEmpty)
+                    StartPoint = MouseLocation;
+
+               // EndPoint = e.Location;
+
+                Renderer.Execute("MousePan", StartPoint, MouseLocation);
+
+                StartPoint = MouseLocation;
             }
 
             base.OnMouseMove(e);
@@ -206,6 +221,57 @@ namespace DxRender
             }
 
             base.Dispose(disposing);
+        }
+
+
+        public void ControlAspectRatio()
+        {
+            Control ViewPort = this;
+            ViewPort.Dock = DockStyle.None;
+
+            Control Container = ViewPort.Parent;
+            if (Container == null) return;
+
+            SetSize(ViewPort, Container);
+            Container.Resize += (o, e) =>
+            {
+                this.SetSize();
+            };
+
+        }
+
+        public void SetSize()
+        {
+            Control ViewPort = this;
+            Control Container = ViewPort.Parent;
+            if (Container == null) return;
+
+            SetSize(ViewPort, Container);
+        }
+
+
+        private void SetSize(Control ViewPort, Control Container)
+        {
+            Rectangle ContainerRectangle = Container.ClientRectangle;
+
+            float AspectRatio = (float)FrameSource.VideoBuffer.Width / FrameSource.VideoBuffer.Height;
+            float ContainerRatio = (float)ContainerRectangle.Width / ContainerRectangle.Height;
+            if (ContainerRatio < AspectRatio)
+            {
+                ViewPort.Width = ContainerRectangle.Width;
+                ViewPort.Height = (int)(ViewPort.Width / AspectRatio);
+                ViewPort.Top = (ContainerRectangle.Height - ViewPort.Height) / 2;
+                ViewPort.Left = 0;
+            }
+            else
+            {
+                ViewPort.Height = ContainerRectangle.Height;
+                ViewPort.Width = (int)(ViewPort.Height * AspectRatio);
+                
+                ViewPort.Top = 0;
+                ViewPort.Left = (ContainerRectangle.Width - ViewPort.Width) / 2;
+
+            }
         }
     }
 }

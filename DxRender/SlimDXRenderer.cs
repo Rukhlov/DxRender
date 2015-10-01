@@ -45,7 +45,6 @@ namespace DxRender
 
             control = Control.FromHandle(Handle);
 
-
             control.Resize += (o, a) =>
             {
                 //Control ctr = o as Control;
@@ -169,7 +168,6 @@ namespace DxRender
             GraphicDevice.SetRenderState(RenderState.ZWriteEnable, false);
 
 
-            
 
             //GraphicDevice.SetSamplerState(0, SamplerState.MagFilter, TextureFilter.None);
             //GraphicDevice.SetSamplerState(0, SamplerState.MinFilter, TextureFilter.Linear);
@@ -215,39 +213,7 @@ namespace DxRender
         }
 
 
-        /*
-        public override void Draw(bool UpdateSurface = true)
-        {
-            if (GraphicDevice == null) return;
-            if (ReDrawing == true) return;
-            try
-            {
-                ReDrawing = true;
-                GraphicDevice.Clear(ClearFlags.Target | ClearFlags.ZBuffer, GDI.Color.Black, 1.0f, 0);
-
-                GraphicDevice.BeginScene();
-
-                SpriteBatch.Begin(SpriteFlags.AlphaBlend);
-                SpriteBatch.Draw(BackBufferTexture, BackBufferArea, GDI.Color.White);
-                ScreenFont.DrawString(SpriteBatch, PerfCounter.GetReport(), 0, 0, PerfCounter.Styler.Color);
-                SpriteBatch.End();
-
-                
-
-                GraphicDevice.EndScene();
-                GraphicDevice.Present();
-            }
-            catch (Direct3D9Exception ex)
-            {
-                if (ex.ResultCode == ResultCode.DeviceLost)
-                    DeviceLost = true;
-
-                Debug.WriteLine(ex.Message);
-            }
-            finally { ReDrawing = false; }
-            
-        }
-        */
+        bool UseAspectRatio = true;
 
         public override void Draw(bool UpdateSurface = true)
         {
@@ -288,26 +254,70 @@ namespace DxRender
                 GDI.Rectangle ControlRectangle = control.ClientRectangle; //control.DisplayRectangle;
                 Matrix Transform = Matrix.Identity;
 
+
+
                 if (ControlRectangle.Width != Width || ControlRectangle.Height != Height)
                 {
+                    float AspectRatio = (float)Width / Height;
+                    float ContainerRatio = (float)ControlRectangle.Width / ControlRectangle.Height;
+
+                    //if (UseAspectRatio)
+                    //{
+                    //    float ControlScaleX = 1f;
+                    //    float ControlScaleY = 1f;
+                    //    float TranslationX = 0;
+                    //    float TranslationY = 0;
+
+                    //    if (ContainerRatio < AspectRatio)
+                    //    {
+                    //        ControlScaleX = (float)ControlRectangle.Width / CurrentViewRectangle.Width;
+
+                    //        float CorrectedControlHeight = (float)ControlRectangle.Width / AspectRatio;
+                    //        ControlScaleY = (float)CorrectedControlHeight / CurrentViewRectangle.Height;
+
+                    //        TranslationY = (ControlRectangle.Height - CurrentViewRectangle.Height * ControlScaleY) / 2;
+                    //    }
+                    //    else
+                    //    {
+                    //        float CorrectedControlWidth = (float)ControlRectangle.Height * AspectRatio;
+
+                    //        ControlScaleX = CorrectedControlWidth / CurrentViewRectangle.Width;
+
+                    //        TranslationX = (ControlRectangle.Width - CurrentViewRectangle.Width * ControlScaleX) / 2;
+
+                    //        ControlScaleY = (float)ControlRectangle.Height / CurrentViewRectangle.Height;
+                    //    }
+
+                    //    Transform = Matrix.Scaling(ControlScaleX, ControlScaleY, 1) * Matrix.Translation(TranslationX, TranslationY, 0);
+                    //}
+
+
+
                     if (CurrentViewRectangle.IsEmpty == false)
                     {
                         float ScaleX = (float)ControlRectangle.Width / CurrentViewRectangle.Width;
-                        float ScaleY = (float)ControlRectangle.Height / CurrentViewRectangle.Height; 
+                        float ScaleY = (float)ControlRectangle.Height / CurrentViewRectangle.Height;
 
                         Transform = Matrix.Translation(-CurrentViewRectangle.X, -CurrentViewRectangle.Y, 0) * Matrix.Scaling(ScaleX, ScaleY, 1);
                     }
                     else
                     {
-                        float ControlScaleX = (float)ControlRectangle.Width / Width; //BackBufferArea.Width;
-                        float ControlScaleY = (float)ControlRectangle.Height / Height; //BackBufferArea.Height;
+                        float ControlScaleX = (float)ControlRectangle.Width / Width;
+                        float ControlScaleY = (float)ControlRectangle.Height / Height;
 
                         Transform = Matrix.Scaling(ControlScaleX, ControlScaleY, 1);
+
+                        // Transform =  Matrix.Scaling(ControlScaleX, ControlScaleY, 1);
                         //Transform = Matrix.Scaling(0.3f, 0.3f, 1);
                     }
 
                 }
 
+
+
+
+
+                //Transform = Matrix.Translation(100, 100, 0) * Matrix.Scaling(0.5f, 0.5f, 1);
 
                 if (buffer.UpsideDown)
                 {// поворачивем изображение на 180 град, со смещением
@@ -318,10 +328,10 @@ namespace DxRender
                 SpriteBatch.Begin(SpriteFlags.AlphaBlend);
 
 
-
+                //SpriteBatch.Transform = view * Perspective * Transform;
 
                 SpriteBatch.Transform = Transform;
-                SpriteBatch.Draw(BackBufferTexture, BackBufferArea, GDI.Color.White);
+                SpriteBatch.Draw(BackBufferTexture, /*BackBufferArea*/ new GDI.Rectangle(0,0, Width, Height), GDI.Color.White);
 
                 //SpriteBatch.Draw(BackBufferTexture, new GDI.Rectangle(0,0,100,100), GDI.Color.White);
 
@@ -448,30 +458,72 @@ namespace DxRender
             switch (Command)
             {
                 case "MouseMove":
-                    GDI.Rectangle Rect = (GDI.Rectangle)Parameters[0];
-                    SelectionRectangle = Rect;
+                    {
+                        GDI.Rectangle Rect = (GDI.Rectangle)Parameters[0];
+                        SelectionRectangle = Rect;
+                    }
+                    break;
+
+                case "SetSelection":
+                    {
+                        GDI.Rectangle Rect = (GDI.Rectangle)Parameters[0];
+                        SelectionRectangle = new GDI.Rectangle();
+
+                        if (Rect.IsEmpty)
+                        {
+                            //CurrentViewRectangle = new GDI.RectangleF();//BackBufferArea;
+                            CurrentViewRectangle = new GDI.RectangleF(0, 0, Width, Height);
+                            return;
+                        }
+                        else
+                        {
+                            if (CurrentViewRectangle.IsEmpty)
+                                CurrentViewRectangle = new GDI.RectangleF(0, 0, Width, Height);
+                        }
+
+                        GDI.Rectangle ControlRectangle = control.ClientRectangle;
+
+                        float ScaleX = (float)CurrentViewRectangle.Width / ControlRectangle.Width;
+                        float ScaleY = (float)CurrentViewRectangle.Height / ControlRectangle.Height;
+
+                        float TranslationX = (Rect.X * ScaleX + CurrentViewRectangle.X);
+                        float TranslationY = (Rect.Y * ScaleY + CurrentViewRectangle.Y);
+
+                        CurrentViewRectangle = new GDI.RectangleF(TranslationX, TranslationY,
+                            Rect.Width * ScaleX, Rect.Height * ScaleY);
+
+                       // Debug.WriteLine(CurrentViewRectangle.ToString());
+                    }
 
                     break;
-                
 
                 case "MousePan":
+                    {
+                        GDI.Point StartPoint = (GDI.Point)Parameters[0];
+                        GDI.Point EndPoint = (GDI.Point)Parameters[1];
 
-                    GDI.Point StartPoint = (GDI.Point)Parameters[0];
-                    GDI.Point EndPoint = (GDI.Point)Parameters[1];
+                        GDI.Rectangle ControlRectangle = control.ClientRectangle;
 
-                    GDI.Rectangle ControlRectangle = control.ClientRectangle;
+                        float ScaleX = (float)CurrentViewRectangle.Width / ControlRectangle.Width;
+                        float ScaleY = (float)CurrentViewRectangle.Height / ControlRectangle.Height;
 
-                    float ScaleX = (float)CurrentViewRectangle.Width / ControlRectangle.Width;
-                    float ScaleY = (float)CurrentViewRectangle.Height / ControlRectangle.Height;
+                        float TranslationX = (-(EndPoint.X - StartPoint.X) * ScaleX + CurrentViewRectangle.X);
+                        float TranslationY = (-(EndPoint.Y - StartPoint.Y) * ScaleY + CurrentViewRectangle.Y);
 
-                    float TranslationX = (-(EndPoint.X - StartPoint.X) * ScaleX + CurrentViewRectangle.X);
-                    float TranslationY = (-(EndPoint.Y - StartPoint.Y) * ScaleY + CurrentViewRectangle.Y);
+                        if (TranslationX < 0) TranslationX = 0;
+                        if (TranslationY < 0) TranslationY = 0;
+
+                        if (TranslationX + CurrentViewRectangle.Width > Width) TranslationX = CurrentViewRectangle.X;
+                        if (TranslationY + CurrentViewRectangle.Height > Height) TranslationY = CurrentViewRectangle.Y;
+
+                        //Debug.WriteLine("TranslationX = {0} TranslationY = {1}", TranslationX, TranslationY);
+                        //Debug.WriteLine("CurrentViewRectangle {0}", CurrentViewRectangle);
+
+                        CurrentViewRectangle = new GDI.RectangleF(TranslationX, TranslationY, CurrentViewRectangle.Width, CurrentViewRectangle.Height);
 
 
-                    CurrentViewRectangle = new GDI.RectangleF(TranslationX, TranslationY, CurrentViewRectangle.Width, CurrentViewRectangle.Height);
-
-
-                    Debug.WriteLine("Strat = {0} End = {1}", StartPoint, EndPoint);
+                        //Debug.WriteLine("Strat = {0} End = {1}", StartPoint, EndPoint);
+                    }
                     break;
 
                 default:
@@ -813,6 +865,41 @@ namespace DxRender
             return _resulttexture;
         }//BitmapToTexture
 
+
+
+        /*
+        public override void Draw(bool UpdateSurface = true)
+        {
+            if (GraphicDevice == null) return;
+            if (ReDrawing == true) return;
+            try
+            {
+                ReDrawing = true;
+                GraphicDevice.Clear(ClearFlags.Target | ClearFlags.ZBuffer, GDI.Color.Black, 1.0f, 0);
+
+                GraphicDevice.BeginScene();
+
+                SpriteBatch.Begin(SpriteFlags.AlphaBlend);
+                SpriteBatch.Draw(BackBufferTexture, BackBufferArea, GDI.Color.White);
+                ScreenFont.DrawString(SpriteBatch, PerfCounter.GetReport(), 0, 0, PerfCounter.Styler.Color);
+                SpriteBatch.End();
+
+                
+
+                GraphicDevice.EndScene();
+                GraphicDevice.Present();
+            }
+            catch (Direct3D9Exception ex)
+            {
+                if (ex.ResultCode == ResultCode.DeviceLost)
+                    DeviceLost = true;
+
+                Debug.WriteLine(ex.Message);
+            }
+            finally { ReDrawing = false; }
+            
+        }
+        */
 
         public override void Dispose()
         {
