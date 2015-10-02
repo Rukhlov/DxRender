@@ -16,7 +16,11 @@ namespace DxRender
 
             this.FrameSource = FrameSource;
             this.Renderer = CreateRender(Mode);
+
+            AspectRatio =(float)FrameSource.VideoBuffer.Width / FrameSource.VideoBuffer.Height;
         }
+
+        float AspectRatio = float.NaN; 
 
         private RendererBase CreateRender(RenderMode Mode)
         {
@@ -65,6 +69,15 @@ namespace DxRender
 
         Point MovePoint = new Point();
 
+        protected override void OnKeyUp(KeyEventArgs e)
+        {
+            if(e.KeyCode == Keys.R)
+                Renderer.Execute("ChangeAspectRatio", true);
+
+
+            base.OnKeyUp(e);
+        }
+
         protected override void OnMouseDown(MouseEventArgs e)
         {
             StartPoint = EndPoint = e.Location;
@@ -83,7 +96,7 @@ namespace DxRender
             {
                 if (StartPoint != EndPoint)
                 {
-                    Rectangle SelectionRectangle = GetSelectionRectangle();
+                    Rectangle SelectionRectangle = GetSelectionRectangle(AspectRatio);
 
                     Renderer.Execute("SetSelection", SelectionRectangle);
 
@@ -110,7 +123,7 @@ namespace DxRender
             {
                 EndPoint = e.Location;
 
-                Rectangle SelectionRectangle = GetSelectionRectangle(); 
+                Rectangle SelectionRectangle = GetSelectionRectangle(AspectRatio); 
 
                 Renderer.Execute("MouseMove", SelectionRectangle);
             }
@@ -139,7 +152,7 @@ namespace DxRender
         }
 
 
-        private Rectangle GetSelectionRectangle()
+        private Rectangle GetSelectionRectangle(float AspectRatio = float.NaN)
         {
             if (StartPoint.X < 0) StartPoint.X = 0;
             if (StartPoint.Y < 0) StartPoint.Y = 0;
@@ -158,6 +171,7 @@ namespace DxRender
             int Y = 0;
             int Width = 0;
             int Height = 0;
+
 
             if (StartPoint.X > EndPoint.X)
             {
@@ -180,6 +194,37 @@ namespace DxRender
                 Y = StartPoint.Y;
                 Height = EndPoint.Y - StartPoint.Y;
             }
+
+            //if (float.IsNaN(AspectRatio) == false)
+            //{
+
+            //    if (StartPoint.X > EndPoint.X)
+            //    {
+
+            //        if (Width > (int)(Height * AspectRatio))
+            //        {
+            //            Height = (int)(Width / AspectRatio);
+            //        }
+            //        else
+            //        {
+            //            Width = (int)(Height * AspectRatio);
+            //        }
+            //        X = StartPoint.X - Width;
+            //    }
+            //    else
+            //    {
+            //        if (Width > (int)(Height * AspectRatio))
+            //        {
+            //            Height = (int)(Width / AspectRatio);
+            //        }
+            //        else
+            //        {
+            //            Width = (int)(Height * AspectRatio);
+            //        }
+
+
+            //    }
+            //}
 
             Rectangle SelectionRectangle = new Rectangle(X, Y, Width, Height);
             return SelectionRectangle;
@@ -270,8 +315,7 @@ namespace DxRender
                 
                 ViewPort.Top = 0;
                 ViewPort.Left = (ContainerRectangle.Width - ViewPort.Width) / 2;
-
-            }
+          }
         }
     }
 }
