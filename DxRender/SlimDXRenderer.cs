@@ -375,7 +375,6 @@ namespace DxRender
                 //DrawLine(0, DisplayRectangle.Height/2, DisplayRectangle.Width , DisplayRectangle.Height/2, 0xFF0000FF);
 
 
-
                 #region MyRegion
                 //if (buffer.UpsideDown)
                 //{// если изображение перевернуто
@@ -454,6 +453,7 @@ namespace DxRender
 
                 #endregion
 
+
                 GraphicDevice.EndScene();
 
                 GraphicDevice.Present(ControlRectangle, ControlRectangle);
@@ -504,45 +504,105 @@ namespace DxRender
                         }
 
                         GDI.Rectangle ControlRectangle = control.ClientRectangle;
+                        if (AspectRatioMode) 
+                        {
 
-                        //if (AspectRatioMode)
-                        //{
-                        //    float ControlRatio = (float)ControlRectangle.Width / ControlRectangle.Height;
-                        //    float ViewRatio = ViewRectangle.Width / ViewRectangle.Height;
 
-                        //    if (ControlRectangle.Width > ControlRectangle.Height)
-                        //    {
-                        //        Rect.Width = (int)(Rect.Width * ViewRatio);
+                            float ViewRatio = ViewRectangle.Width / ViewRectangle.Height;
+                            float ControlRatio = ControlRectangle.Width / ControlRectangle.Height;
 
-                        //    }
-                        //    else
-                        //    {
-                        //        Rect.Height = (int)(Rect.Height / ViewRatio);
-                        //    }
 
-                        //    //GDI.Rectangle CorrectedControlRectangle = new GDI.Rectangle();
-                        //    //if (ControlRatio < ViewRatio)
-                        //    //{
-                        //    //    CorrectedControlRectangle.Width = ControlRectangle.Width;
-                        //    //    CorrectedControlRectangle.Height = (int)(ViewRectangle.Width / ViewRatio);
-                        //    //    CorrectedControlRectangle.Y = (int)(ControlRectangle.Height - ViewRectangle.Height) / 2;
-                        //    //    CorrectedControlRectangle.X = 0;
-                        //    //}
-                        //    //else
-                        //    //{
-                        //    //    CorrectedControlRectangle.Height = ControlRectangle.Height;
-                        //    //    CorrectedControlRectangle.Width = (int)(ViewRectangle.Height * ViewRatio);
+                            if (ControlRatio > 1)
+                            {
+                                int CorrectedViewWidth = (int)(ControlRectangle.Height* ViewRatio);
+                                int ViewX = (ControlRectangle.Width - CorrectedViewWidth) / 2;
 
-                        //    //    CorrectedControlRectangle.Y = 0;
-                        //    //    CorrectedControlRectangle.X =(int) (ControlRectangle.Width - ViewRectangle.Width) / 2;
-                        //    //}
+                                float scaleX = (float)CorrectedViewWidth / ControlRectangle.Width;
 
-                        //    //ControlRectangle = CorrectedControlRectangle;
-                        //}
+                                //int x = (int)(ControlRectangle.Width - (width+Rect.Width));
+
+                                Rect.X = (int)((Rect.X - ViewX) / scaleX);
+
+                                Rect.Width = (int)(Rect.Width / scaleX);
+                            }
+
+                            //if (ViewRatio > 1)
+                            //{
+                            //    //ControlRectangle.Width = (int)(ControlRectangle.Height * ViewRatio);
+                            //    //Rect.Width = (int)(Rect.Height * ViewRatio);
+
+                            //    //float w = ControlRectangle.Height * ViewRatio;
+                            //    //float h = ControlRectangle.Height;
+
+
+                            //    int width = (int)(Rect.Width * ViewRatio);
+                            //    Rect.X = (Rect.Width - width) / 2 + Rect.X;
+                            //    Rect.Width = width;
+
+
+                            //    Debug.WriteLine("w={0} h={1} w/h={2}", ControlRectangle.Width, ControlRectangle.Height, ControlRectangle.Width / ControlRectangle.Height);
+                            //}
+                            //else
+                            //{
+                            //    float w = ControlRectangle.Width;
+                            //    float h = ControlRectangle.Width / ViewRatio;
+
+
+                            //    Debug.WriteLine("w={0} h={1} w/h={2}", w, h, w / h);
+                            //}
+
+                            //Rect = new GDI.Rectangle(700, 225, 694, 228);
+
+                        }
+
+
+
+                        if (AspectRatioMode)
+                        {
+                            float ControlRatio = (float)ControlRectangle.Width / ControlRectangle.Height;
+                            float ViewRatio = ViewRectangle.Width / ViewRectangle.Height;
+
+                            //if (ControlRectangle.Width > ControlRectangle.Height)
+                            //{
+                            //    int width = (int)(Rect.Width * ViewRatio);
+                            //    Rect.X = (Rect.Width - width) / 2 + Rect.X;
+                            //    Rect.Width = width;
+
+                            //}
+                            //else
+                            //{
+                            //    Rect.Height = (int)(Rect.Height / ViewRatio);
+                            //}
+
+                            //GDI.Rectangle CorrectedControlRectangle = new GDI.Rectangle();
+                            //if (ControlRatio < ViewRatio)
+                            //{
+                            //    CorrectedControlRectangle.Width = ControlRectangle.Width;
+                            //    CorrectedControlRectangle.Height = (int)(ViewRectangle.Width / ViewRatio);
+                            //    CorrectedControlRectangle.Y = (int)(ControlRectangle.Height - ViewRectangle.Height) / 2;
+                            //    CorrectedControlRectangle.X = 0;
+                            //}
+                            //else
+                            //{
+                            //    CorrectedControlRectangle.Height = ControlRectangle.Height;
+                            //    CorrectedControlRectangle.Width = (int)(ViewRectangle.Height * ViewRatio);
+
+                            //    CorrectedControlRectangle.Y = 0;
+                            //    CorrectedControlRectangle.X =(int) (ControlRectangle.Width - ViewRectangle.Width) / 2;
+                            //}
+
+                            //ControlRectangle = CorrectedControlRectangle;
+                        }
 
 
                         //float ScaleX = (float)ViewRectangle.Width / ControlRectangle.Width;
                         //float ScaleY = (float)ViewRectangle.Height / ControlRectangle.Height;
+
+
+
+
+
+
 
                         float ScaleX = (float)ViewRectangle.Width / ControlRectangle.Width;
                         float ScaleY = (float)ViewRectangle.Height / ControlRectangle.Height;
@@ -552,6 +612,8 @@ namespace DxRender
 
                         ViewRectangle = new GDI.RectangleF(TranslationX, TranslationY,
                             Rect.Width * ScaleX, Rect.Height * ScaleY);
+
+                        //ViewRectangle = new GDI.RectangleF(320, 240,  100, 240);
 
 
                         Debug.WriteLine(ViewRectangle.ToString());
