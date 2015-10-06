@@ -195,37 +195,6 @@ namespace DxRender
                 Height = EndPoint.Y - StartPoint.Y;
             }
 
-            //if (float.IsNaN(AspectRatio) == false)
-            //{
-
-            //    if (StartPoint.X > EndPoint.X)
-            //    {
-
-            //        if (Width > (int)(Height * AspectRatio))
-            //        {
-            //            Height = (int)(Width / AspectRatio);
-            //        }
-            //        else
-            //        {
-            //            Width = (int)(Height * AspectRatio);
-            //        }
-            //        X = StartPoint.X - Width;
-            //    }
-            //    else
-            //    {
-            //        if (Width > (int)(Height * AspectRatio))
-            //        {
-            //            Height = (int)(Width / AspectRatio);
-            //        }
-            //        else
-            //        {
-            //            Width = (int)(Height * AspectRatio);
-            //        }
-
-
-            //    }
-            //}
-
             Rectangle SelectionRectangle = new Rectangle(X, Y, Width, Height);
             return SelectionRectangle;
         }
