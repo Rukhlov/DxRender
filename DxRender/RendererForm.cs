@@ -1,13 +1,49 @@
-﻿using System.Windows.Forms;
-using System.Diagnostics;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
 using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Windows.Forms;
+using System.Diagnostics;
 
 namespace DxRender
 {
-    class RenderControl : UserControl
+    public partial class RendererForm : Form
     {
-        public RenderControl(IFrameSource FrameSource, RenderMode Mode = RenderMode.SlimDX)
+        public RendererForm()
         {
+            InitializeComponent();
+
+            SetGlobalMouseHook();
+        }
+
+        bool IsFullScreen = false;
+        private void SetGlobalMouseHook()
+        {
+            //GlobalMouse.MouseMove += new MouseEventHandler(GlobalMouse_MouseMove);
+            //GlobalMouse.MouseDown += new MouseEventHandler(GlobalMouse_MouseDown);
+            //GlobalMouse.MouseUp += new MouseEventHandler(GlobalMouse_MouseUp);
+
+            //GlobalMouse.Start();
+        }
+
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            //GlobalMouse.Stop();
+            //GlobalMouse.MouseMove -= new MouseEventHandler(GlobalMouse_MouseMove);
+            //GlobalMouse.MouseDown -= new MouseEventHandler(GlobalMouse_MouseDown);
+            //GlobalMouse.MouseUp -= new MouseEventHandler(GlobalMouse_MouseUp);
+
+
+            base.OnClosing(e);
+        }
+
+        public RendererForm(IFrameSource FrameSource, RenderMode Mode = RenderMode.SlimDX)
+        {
+            InitializeComponent();
+
             SetStyle(ControlStyles.ResizeRedraw, false);
             SetStyle(ControlStyles.Opaque, true);
             SetStyle(ControlStyles.UserPaint, true);
@@ -17,10 +53,50 @@ namespace DxRender
             this.FrameSource = FrameSource;
             this.Renderer = CreateRender(Mode);
 
+            SetGlobalMouseHook();
             //AspectRatio =(float)FrameSource.VideoBuffer.Width / FrameSource.VideoBuffer.Height;
         }
 
-        //float AspectRatio = float.NaN; 
+        private void GlobalMouse_MouseDown(object sender, MouseEventArgs e)
+        {
+
+        }
+        private void GlobalMouse_MouseUp(object sender, MouseEventArgs e)
+        {
+
+        }
+
+        private void GlobalMouse_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.Button == System.Windows.Forms.MouseButtons.Left)
+            {
+                EndPoint = e.Location;
+
+                Rectangle SelectionRectangle = GetSelectionRectangle();
+
+                Renderer.Execute("MouseMove", SelectionRectangle);
+            }
+
+            if (e.Button == System.Windows.Forms.MouseButtons.Right)
+            {
+                Point MouseLocation = e.Location;
+
+                if (MouseLocation.X < 0) MouseLocation.X = 0;
+                if (MouseLocation.Y < 0) MouseLocation.Y = 0;
+
+                if (MouseLocation.X > this.Width) MouseLocation.X = this.Width;
+                if (MouseLocation.Y > this.Height) MouseLocation.Y = this.Height;
+
+                if (StartPoint.IsEmpty)
+                    StartPoint = MouseLocation;
+
+                // EndPoint = e.Location;
+
+                Renderer.Execute("MousePan", StartPoint, MouseLocation);
+
+                StartPoint = MouseLocation;
+            }
+        }
 
         private RendererBase CreateRender(RenderMode Mode)
         {
@@ -39,7 +115,7 @@ namespace DxRender
             if (e.KeyCode == Keys.Escape)
             {
                 //...
-                this.ParentForm.Close();
+                this.Close();
             }
 
             if (e.KeyCode == Keys.Space)
@@ -52,6 +128,7 @@ namespace DxRender
             {
                 //...
             }
+
             base.OnKeyDown(e);
         }
 
@@ -71,7 +148,7 @@ namespace DxRender
 
         protected override void OnKeyUp(KeyEventArgs e)
         {
-            if(e.KeyCode == Keys.R)
+            if (e.KeyCode == Keys.R)
                 Renderer.Execute("ChangeAspectRatio", true);
             if (e.KeyCode == Keys.F)
                 Renderer.Execute("ChangeFullScreen", true);
@@ -117,38 +194,40 @@ namespace DxRender
             base.OnMouseUp(e);
         }
 
-        
+
         protected override void OnMouseMove(MouseEventArgs e)
         {
-            if (e.Button == System.Windows.Forms.MouseButtons.Left)
+            if (IsFullScreen == false)
             {
-                EndPoint = e.Location;
+                if (e.Button == System.Windows.Forms.MouseButtons.Left)
+                {
+                    EndPoint = e.Location;
 
-                Rectangle SelectionRectangle = GetSelectionRectangle(); 
+                    Rectangle SelectionRectangle = GetSelectionRectangle();
 
-                Renderer.Execute("MouseMove", SelectionRectangle);
-            }
+                    Renderer.Execute("MouseMove", SelectionRectangle);
+                }
 
-            if (e.Button == System.Windows.Forms.MouseButtons.Right)
-            {
-                Point MouseLocation = e.Location;
+                if (e.Button == System.Windows.Forms.MouseButtons.Right)
+                {
+                    Point MouseLocation = e.Location;
 
-                if (MouseLocation.X < 0) MouseLocation.X = 0;
-                if (MouseLocation.Y < 0) MouseLocation.Y = 0;
+                    if (MouseLocation.X < 0) MouseLocation.X = 0;
+                    if (MouseLocation.Y < 0) MouseLocation.Y = 0;
 
-                if (MouseLocation.X > this.Width) MouseLocation.X = this.Width;
-                if (MouseLocation.Y > this.Height) MouseLocation.Y = this.Height;
+                    if (MouseLocation.X > this.Width) MouseLocation.X = this.Width;
+                    if (MouseLocation.Y > this.Height) MouseLocation.Y = this.Height;
 
-                if (StartPoint.IsEmpty)
+                    if (StartPoint.IsEmpty)
+                        StartPoint = MouseLocation;
+
+                    // EndPoint = e.Location;
+
+                    Renderer.Execute("MousePan", StartPoint, MouseLocation);
+
                     StartPoint = MouseLocation;
-
-               // EndPoint = e.Location;
-
-                Renderer.Execute("MousePan", StartPoint, MouseLocation);
-
-                StartPoint = MouseLocation;
+                }
             }
-
             base.OnMouseMove(e);
         }
 
@@ -282,10 +361,10 @@ namespace DxRender
             {
                 ViewPort.Height = ContainerRectangle.Height;
                 ViewPort.Width = (int)(ViewPort.Height * AspectRatio);
-                
+
                 ViewPort.Top = 0;
                 ViewPort.Left = (ContainerRectangle.Width - ViewPort.Width) / 2;
-          }
+            }
         }
     }
 }

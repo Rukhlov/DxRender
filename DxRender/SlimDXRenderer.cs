@@ -22,9 +22,10 @@ namespace DxRender
         private Sprite SpriteBatch = null;
         private GDI.Rectangle BackBufferArea;
 
-        private Texture BackBufferTexture = null;
-        private Surface BackBufferTextureSurface = null;
-        private Surface OffscreenSurface;
+        private Texture BitmapTexture = null;
+        private Surface TextureSurface = null;
+
+        //private Surface OffscreenSurface;
         private Font ScreenFont;
 
         private Direct3D Direct3D9 = null;
@@ -39,25 +40,36 @@ namespace DxRender
 
         bool AspectRatioMode = false;
 
+        private bool IsFullScreen = false;
+
         private Control control = null;
         public SlimDXRenderer(IntPtr Handle, IFrameSource FrameSource)
             : base(Handle, FrameSource)
         {
             buffer = FrameSource.VideoBuffer;
 
-            StartUp();
-
             control = Control.FromHandle(Handle);
 
-            control.Resize += (o, a) => { };
+            StartUp();
+
+            //control.Resize += (o, a) => { };
         }
+
+        private FormState RendererFormState = new FormState();
+
+        private SynchronizationContext ThisContext = null;
 
         private void StartUp()
         {
+            Debug.WriteLine("SlimDXRenderer.StartUp()");
+
+            ThisContext = SynchronizationContext.Current;
+
             Direct3D9 = new Direct3D();
+
             AdapterInfo = Direct3D9.Adapters.DefaultAdapter;
 
-            var Capabilities = Direct3D9.GetDeviceCaps(0, DeviceType.Hardware);
+            //var Capabilities = Direct3D9.GetDeviceCaps(0, DeviceType.Hardware);
 
 
             PresentParams = CreatePresentParameters();
@@ -67,48 +79,57 @@ namespace DxRender
             CreateFlags Flags = CreateFlags.Multithreaded | CreateFlags.FpuPreserve | CreateFlags.HardwareVertexProcessing;
             GraphicDevice = new Device(Direct3D9, AdapterInfo.Adapter, DeviceType.Hardware, OwnerHandle, Flags, PresentParams);
 
+            SetRendererState();
+
             SpriteBatch = new Sprite(GraphicDevice);
 
+            InitializeTexture();
 
-            //BackBufferTexture = Texture.FromFile(GraphicDevice, "d:\\01.bmp", Usage.Dynamic, Pool.Default);
-
-            // TODO: текстура должна настраиватся в зависимости от размеров и формата битмапа
-            BackBufferTexture = new Texture(GraphicDevice,
-                Width,
-                Height,//!!!
-                1,
-                Usage.Dynamic,
-                Format.X8R8G8B8,
-                Pool.Default);
-
-
-            BackBufferTextureSurface = BackBufferTexture.GetSurfaceLevel(0);
-
-            //OffscreenSurface = Surface.CreateOffscreenPlain(GraphicDevice,
-            //    Width,//PresentParams.BackBufferWidth,
-            //    Height,//PresentParams.BackBufferHeight,
-            //    PresentParams.BackBufferFormat,
-            //    Pool.Default);
+            InitializeVertex();
 
             ScreenFont = new Font(GraphicDevice, PerfCounter.Styler.Font);
 
-            VertexElement[] VertexElems = new[] {
-            	new VertexElement(0, 0,  DeclarationType.Float2, DeclarationMethod.Default, DeclarationUsage.PositionTransformed, 0),
-        		new VertexElement(0, 8, DeclarationType.UByte4N, DeclarationMethod.Default, DeclarationUsage.Color, 0),
-				VertexElement.VertexDeclarationEnd };
-
-            GraphicDevice.VertexDeclaration = new VertexDeclaration(GraphicDevice, VertexElems);
-
+            ViewRectangle = new GDI.RectangleF(0, 0, Width, Height);
             BackBufferArea = new GDI.Rectangle(0, 0, PresentParams.BackBufferWidth, PresentParams.BackBufferHeight);
-            DeviceLost = false;
 
             base.FrameSource.FrameReceived += FrameSource_FrameReceived;
 
+        }
 
 
-            //BitmapRectangle = new GDI.RectangleF BackBufferArea;
-            ViewRectangle = new GDI.RectangleF(0, 0, Width, Height);
+        private PresentParameters CreatePresentParameters()
+        {
+            PresentParameters parameters = new PresentParameters();
+            parameters.SwapEffect = SwapEffect.Discard;
 
+
+            parameters.DeviceWindowHandle = OwnerHandle;
+            if (IsFullScreen == false)
+            {
+                parameters.Windowed = true;
+                parameters.BackBufferWidth = AdapterInfo.CurrentDisplayMode.Width;
+                parameters.BackBufferHeight = AdapterInfo.CurrentDisplayMode.Height;
+            }
+            else
+            { // для включения полноэкранного режима нужен хендл топового окна(НЕ КОНТРОЛА!!!)
+
+                parameters.Windowed = false;
+                parameters.BackBufferWidth = AdapterInfo.CurrentDisplayMode.Width;
+                parameters.BackBufferHeight = AdapterInfo.CurrentDisplayMode.Height;
+            }
+
+            parameters.BackBufferFormat = AdapterInfo.CurrentDisplayMode.Format;
+            parameters.AutoDepthStencilFormat = Format.D16;
+            parameters.Multisample = MultisampleType.None;
+            parameters.MultisampleQuality = 0;
+            parameters.PresentationInterval = PresentInterval.Immediate;
+            parameters.PresentFlags = PresentFlags.Video;
+
+            return parameters;
+        }
+
+        private void SetRendererState()
+        {
             GraphicDevice.SetRenderState(RenderState.AntialiasedLineEnable, false);
 
             GraphicDevice.SetRenderState(RenderState.DestinationBlend, Blend.InverseSourceAlpha);
@@ -154,72 +175,92 @@ namespace DxRender
             GraphicDevice.SetRenderState(RenderState.VertexBlend, VertexBlend.Disable);
             GraphicDevice.SetRenderState(RenderState.ZEnable, ZBufferType.DontUseZBuffer);
             GraphicDevice.SetRenderState(RenderState.ZWriteEnable, false);
-
-
-
-            //GraphicDevice.SetSamplerState(0, SamplerState.MagFilter, TextureFilter.None);
-            //GraphicDevice.SetSamplerState(0, SamplerState.MinFilter, TextureFilter.Linear);
-
-            // GraphicDevice.SetSamplerState(0, SamplerState.MipFilter, TextureFilter.None);
-
         }
 
-        private bool IsFullScreen = false;
-        private PresentParameters CreatePresentParameters()
+        private void InitializeVertex()
         {
-            PresentParameters parameters = new PresentParameters();
-            //parameters.SwapEffect = SwapEffect.Discard;
+            VertexElement[] VertexElems = new[] {
+                new VertexElement(0, 0,  DeclarationType.Float2, DeclarationMethod.Default, DeclarationUsage.PositionTransformed, 0),
+                new VertexElement(0, 8, DeclarationType.UByte4N, DeclarationMethod.Default, DeclarationUsage.Color, 0),
+                VertexElement.VertexDeclarationEnd };
 
-            parameters.DeviceWindowHandle = OwnerHandle;
-            if (IsFullScreen == false)
-            {
-                parameters.Windowed = true;
-                parameters.BackBufferWidth = AdapterInfo.CurrentDisplayMode.Width;
-                parameters.BackBufferHeight = AdapterInfo.CurrentDisplayMode.Height;
-            }
-            else
-            { // для включения полноэкранного режима нужен хендл топового окна(НЕ КОНТРОЛА!!!)
-                parameters.Windowed = false;
-                parameters.BackBufferWidth = AdapterInfo.CurrentDisplayMode.Width;
-                parameters.BackBufferHeight = AdapterInfo.CurrentDisplayMode.Height;
-            }
-
-            parameters.BackBufferFormat = AdapterInfo.CurrentDisplayMode.Format;
-            parameters.AutoDepthStencilFormat = Format.D16;
-            parameters.Multisample = MultisampleType.None;
-            parameters.MultisampleQuality = 0;
-            parameters.PresentationInterval = PresentInterval.Immediate;
-            parameters.PresentFlags = PresentFlags.Video;
-
-            return parameters;
+            GraphicDevice.VertexDeclaration = new VertexDeclaration(GraphicDevice, VertexElems);
         }
 
+        private void InitializeTexture()
+        {
+
+            //BackBufferTexture = Texture.FromFile(GraphicDevice, "d:\\01.bmp", Usage.Dynamic, Pool.Default);
+
+            // TODO: текстура должна настраиватся в зависимости от размеров и формата битмапа
+            BitmapTexture = new Texture(GraphicDevice, Width, Height, 1, Usage.Dynamic, Format.X8R8G8B8, Pool.Default);
+
+            TextureSurface = BitmapTexture.GetSurfaceLevel(0);
+        }
+
+
+        object locker = new object();
         private void FrameSource_FrameReceived(object sender, FrameReceivedEventArgs e)
         {
-            Draw();
-            PerfCounter.UpdateStatistic(e.SampleTime);
+            lock (locker)
+            {
+                Draw();
+                PerfCounter.UpdateStatistic(e.SampleTime);
+            }
         }
 
         public override void Draw(bool UpdateSurface = true)
         {
             if (GraphicDevice == null) return;
             if (ReDrawing == true) return;
+            if (TogglingFullScreen == true) return;
 
             var r = GraphicDevice.TestCooperativeLevel();
             if (r != ResultCode.Success)
             {
+                //DeviceReady = false;
                 if (r == ResultCode.DeviceNotReset)
                 {
-                    CleanUp();
-                    StartUp();
+                    ResetDevice();
                     UpdateSurface = true;
                 }
                 if (r == ResultCode.DeviceLost)
                 {
+                    lock (locker)
+                    {
+                        ThisContext.Send((_) =>
+                        {
+                            OnLostDevice();
+                        }, null);
+                    }
                     DeviceLost = true;
-                    return;
+                    //....
+
                 }
+                Debug.WriteLine("GraphicDevice.TestCooperativeLevel() = " + r);
+                return;
             }
+
+            //if (DeviceLost)
+            //{
+            //    if (GraphicDevice.TestCooperativeLevel() == ResultCode.DeviceNotReset)
+            //    {
+            //        lock (locker)
+            //        {
+            //            ThisContext.Send((_) =>
+            //            {
+            //                GraphicDevice.Reset(PresentParams);
+            //                DeviceLost = false;
+            //                OnDeviceReset();
+            //            }, null);
+            //        }
+            //    }
+            //    else
+            //    {
+            //        Thread.Sleep(100);
+            //        return;
+            //    }
+            //}
 
             try
             {
@@ -232,17 +273,31 @@ namespace DxRender
                 if (UpdateSurface)
                 {
                     //CopyToSurface(BackBufferTextureSurface, TestBmp, new System.Drawing.Rectangle(0 ,0 , TestBmp.Width, TestBmp.Height)/*this.ClientRectangle*/);
-                    CopyToSurface(buffer, BackBufferTextureSurface);
-
+                    CopyToSurface(buffer, TextureSurface);
                 }
 
-                GDI.Rectangle ControlRectangle = control.ClientRectangle; //control.DisplayRectangle;
+                //SpriteBatch.Begin(SpriteFlags.AlphaBlend);
+                //SpriteBatch.Draw(BackBufferTexture, new GDI.Rectangle(0,0, Width, Height), GDI.Color.White);
+
+                //SpriteBatch.End();
+                //GraphicDevice.EndScene();
+                //GraphicDevice.Present();
+
+
+
+                GDI.Rectangle ControlRectangle = IsFullScreen ? BackBufferArea : control.ClientRectangle;
+
+                //Debug.WriteLine(ControlRectangle);
+                //Debug.WriteLine(ViewRectangle);
+
+                //GDI.Rectangle ControlRectangle = control.DisplayRectangle;
                 Matrix Transform = Matrix.Identity;
 
-  
-                if (ControlRectangle.Width != Width || ControlRectangle.Height != Height)
+
+                //if (ControlRectangle.Width != Width || ControlRectangle.Height != Height)
                 {
                     float ViewRatio = (float)ViewRectangle.Width / ViewRectangle.Height; //(float)Width / Height;
+
                     float ControlRatio = (float)ControlRectangle.Width / ControlRectangle.Height;
 
                     if (AspectRatioMode)
@@ -281,6 +336,8 @@ namespace DxRender
                         float ControlScaleY = (float)ControlRectangle.Height / ViewRectangle.Height;
 
                         Transform *= Matrix.Scaling(ControlScaleX, ControlScaleY, 1);
+
+                        //Debug.WriteLine("ControlScaleX = {0} ControlScaleY {1}", ControlScaleX, ControlScaleY);
                     }
                 }
 
@@ -295,7 +352,11 @@ namespace DxRender
 
                 SpriteBatch.Transform = Transform;
 
-                SpriteBatch.Draw(BackBufferTexture, GDI.Rectangle.Round(ViewRectangle), GDI.Color.White);
+                GDI.Rectangle rect = GDI.Rectangle.Round(ViewRectangle);
+                //rect.Inflate(1, 1);
+                //var rect = new GDI.Rectangle((int)ViewRectangle.X, (int)ViewRectangle.Y, (int)ViewRectangle.Width+1, (int)ViewRectangle.Height+1);
+
+                SpriteBatch.Draw(BitmapTexture, rect, GDI.Color.White);
 
                 //SpriteBatch.Draw(BackBufferTexture, new GDI.Rectangle(0,0,Width,Height), GDI.Color.White);
 
@@ -306,6 +367,7 @@ namespace DxRender
 
                 SpriteBatch.End();
 
+                //SelectionRectangle = new GDI.Rectangle(0, 0, 100, 100);//new GDI.Rectangle(0, 0, 100, 100);
                 if (SelectionRectangle != null && SelectionRectangle.IsEmpty == false)
                 {
                     uint SelectionColor = 0x3FFF0000;
@@ -313,14 +375,19 @@ namespace DxRender
                     DrawRectangle(SelectionRectangle, 0xFFFF0000);
                 }
 
+
+
                 //DrawLine(DisplayRectangle.Width / 2, 0, DisplayRectangle.Width / 2, DisplayRectangle.Height, 0xFF0000FF);
                 //DrawLine(0, DisplayRectangle.Height/2, DisplayRectangle.Width , DisplayRectangle.Height/2, 0xFF0000FF);
 
                 GraphicDevice.EndScene();
 
-                GraphicDevice.Present(ControlRectangle, ControlRectangle);
+                if (IsFullScreen)
+                    GraphicDevice.Present();
+                else
+                    GraphicDevice.Present(ControlRectangle, ControlRectangle);
 
-                //GraphicDevice.Present();
+                //GraphicDevice.Present(BackBufferArea, BackBufferArea);
 
                 //Thread.Sleep(1000);
             }
@@ -329,10 +396,30 @@ namespace DxRender
                 if (ex.ResultCode == ResultCode.DeviceLost)
                     DeviceLost = true;
 
+
+                //if (ex.ResultCode == ResultCode.DeviceLost)
+                //{
+                //    lock (locker)
+                //    {
+                //        ThisContext.Send((_) =>
+                //        {
+                //            OnLostDevice();
+                //            DeviceLost = true;
+                //        }, null);
+                //    }
+
+                //}
+                //else
+                //{
+                //    throw;
+                //}
+
+
                 Debug.WriteLine(ex.Message);
             }
             finally { ReDrawing = false; }
         }
+
 
 
         public override void Execute(string Command, params object[] Parameters)
@@ -359,7 +446,10 @@ namespace DxRender
 
                         if (ViewRectangle.IsEmpty) ViewRectangle = new GDI.RectangleF(0, 0, Width, Height);
 
-                        GDI.Rectangle ControlRectangle = control.ClientRectangle;
+                        //GDI.Rectangle ControlRectangle = control.ClientRectangle;
+                        GDI.Rectangle ControlRectangle = IsFullScreen ? BackBufferArea : control.ClientRectangle;
+
+                        Debug.WriteLine(ControlRectangle);
 
                         if (AspectRatioMode)
                         {// если включен режим отображения с учетом соотношения сторон 
@@ -482,7 +572,8 @@ namespace DxRender
                         GDI.Point StartPoint = (GDI.Point)Parameters[0];
                         GDI.Point EndPoint = (GDI.Point)Parameters[1];
 
-                        GDI.Rectangle ControlRectangle = control.ClientRectangle;
+                        //GDI.Rectangle ControlRectangle = control.ClientRectangle;
+                        GDI.Rectangle ControlRectangle = IsFullScreen ? BackBufferArea : control.ClientRectangle;
 
                         float ScaleX = (float)ViewRectangle.Width / ControlRectangle.Width;
                         float ScaleY = (float)ViewRectangle.Height / ControlRectangle.Height;
@@ -506,9 +597,22 @@ namespace DxRender
                     AspectRatioMode = !AspectRatioMode;
                     break;
 
+                case "ChangeFullScreen":
+                    {
+                        
+                        lock (locker)
+                        {
+                            ToggleFullScreen();
+                            IsFullScreen = !IsFullScreen;
+                        }
+                        //CahngeFullScreenMode = true;
+                    }
+                    break;
                 default:
                     break;
             }
+
+           // Debug.WriteLine(Command);
         }
 
 
@@ -602,23 +706,18 @@ namespace DxRender
 
         }
 
-        public override void SetRectangle(GDI.Rectangle Rect)
-        {
-
-            base.SetRectangle(Rect);
-        }
-
         private void CopyToSurface(MemoryBuffer buf, Surface surface)
         {
-            lock (buf)
+            lock (locker)
             {
+                //Debug.WriteLine("SlimDXRenderer.CopyToSurface()");
                 DataRectangle t_data = surface.LockRectangle(LockFlags.None);
 
                 if (buf.UpsideDown)
                 {// если битмап перевернут копируем снизу вверх
                     int NewStride = buf.Width * 4;
                     int RestStride = t_data.Pitch - NewStride;
-   
+
                     for (int j = buf.Height; j > 0; j--)
                     {
                         int Offset = (j - 1) * NewStride;
@@ -680,6 +779,7 @@ namespace DxRender
         }//BitmapToTexture
 
 
+        #region BAK
 
         /*
         public override void Draw(bool UpdateSurface = true)
@@ -714,9 +814,6 @@ namespace DxRender
             
         }
         */
-
-
-        #region BAK
 
         //private void CopyToSurface3(MemoryBuffer buf, Surface surface)
         //{
@@ -907,45 +1004,181 @@ namespace DxRender
             base.Dispose();
         }
 
+        bool TogglingFullScreen = false;
+
+        public void ToggleFullScreen()
+        {
+            Debug.WriteLine("SlimDXRenderer.ToggleFullScreen()");
+            TogglingFullScreen = true;
+
+            Form form = control as Form;
+            if (form == null) return;
+
+            OnLostDevice();
+
+            if (PresentParams.Windowed)
+            {
+                RendererFormState.BorderStyle = form.FormBorderStyle;
+                RendererFormState.WindowState = form.WindowState;
+
+                RendererFormState.Width = form.Width;
+                RendererFormState.Height = form.Height;
+
+                // Only normal window can be used in full screen.
+                if (form.WindowState != FormWindowState.Normal)
+                    form.WindowState = FormWindowState.Normal;
+
+                //form.Width = AdapterInfo.CurrentDisplayMode.Width;
+                //form.Height = AdapterInfo.CurrentDisplayMode.Height;
+                form.Capture = true;
+
+                form.FormBorderStyle = FormBorderStyle.None;
+
+                PresentParams.BackBufferWidth = AdapterInfo.CurrentDisplayMode.Width;
+                PresentParams.BackBufferHeight = AdapterInfo.CurrentDisplayMode.Height;
+
+                //IntPtr DesktopHandle = GetDC(IntPtr.Zero);
+                //PresentParams.DeviceWindowHandle = DesktopHandle;
+
+                PresentParams.Windowed = false;
+            }
+            else
+            {
+                //PresentParams.BackBufferWidth = Width;
+                //PresentParams.BackBufferHeight = Height;
+
+                form.Capture = false;
+
+                PresentParams.BackBufferWidth = AdapterInfo.CurrentDisplayMode.Width;
+                PresentParams.BackBufferHeight = AdapterInfo.CurrentDisplayMode.Height;
+
+                form.FormBorderStyle = RendererFormState.BorderStyle;
+                form.WindowState = RendererFormState.WindowState;
+
+                if (form.WindowState == FormWindowState.Normal)
+                {
+                    form.Width = RendererFormState.Width;
+                    form.Height = RendererFormState.Height;
+                }
+
+                PresentParams.DeviceWindowHandle = form.Handle;
+
+                PresentParams.Windowed = true;
+
+            }
+
+            GraphicDevice.Reset(PresentParams);
+            OnDeviceReset();
+
+            TogglingFullScreen = false;
+        }
+
+        private void ResetDevice()
+        {
+            lock (locker)
+            {
+                ThisContext.Send((_) =>
+                {
+                    OnLostDevice();
+                    GraphicDevice.Reset(PresentParams);
+                    OnDeviceReset();
+                }, null);
+                Debug.WriteLine("SlimDXRenderer.ResetDevice()");
+            }
+
+        }
+
+        private void OnLostDevice()
+        {
+            Debug.WriteLine("SlimDXRenderer.OnLostDevice()");
+            //FrameSource.FrameReceived -= FrameSource_FrameReceived;
+            if (BitmapTexture != null && BitmapTexture.Disposed == false)
+            {
+                BitmapTexture.Dispose();
+                BitmapTexture = null;
+            }
+
+            if (TextureSurface != null && TextureSurface.Disposed == false)
+            {
+                TextureSurface.Dispose();
+                TextureSurface = null;
+            }
+
+            //if (SpriteBatch != null && SpriteBatch.Disposed == false)
+            //{
+            //    SpriteBatch.Dispose();
+            //    SpriteBatch = null;
+            //}
+
+            //if (ScreenFont != null && ScreenFont.Disposed == false)
+            //{
+            //    ScreenFont.Dispose();
+            //    ScreenFont = null;
+            //}
+
+            if (SpriteBatch != null)
+                SpriteBatch.OnLostDevice();
+
+            if (ScreenFont != null)
+                ScreenFont.OnLostDevice();
+        }
+
+
+        private void OnDeviceReset()
+        {
+            Debug.WriteLine("SlimDXRenderer.OnDeviceReset()");
+
+            SetRendererState();
+
+            if (SpriteBatch != null) SpriteBatch.OnResetDevice();
+            if (ScreenFont != null) ScreenFont.OnResetDevice();
+
+            InitializeTexture();
+            InitializeVertex();
+
+            ViewRectangle = new GDI.RectangleF(0, 0, Width, Height);
+            BackBufferArea = new GDI.Rectangle(0, 0, PresentParams.BackBufferWidth, PresentParams.BackBufferHeight);
+        }
+
         private void CleanUp()
         {
+            Debug.WriteLine("SlimDXRenderer.CleanUp()");
+
             if (FrameSource != null)
                 FrameSource.FrameReceived -= FrameSource_FrameReceived;
 
-            if (Direct3D9 != null)
+            if (Direct3D9 != null && Direct3D9.Disposed == false)
             {
                 Direct3D9.Dispose();
                 Direct3D9 = null;
             }
 
-            if (GraphicDevice != null)
+            if (GraphicDevice != null && GraphicDevice.Disposed == false)
             {
                 GraphicDevice.Dispose();
                 GraphicDevice = null;
             }
 
-            if (BackBufferTexture != null)
+            if (BitmapTexture != null && BitmapTexture.Disposed == false)
             {
-                BackBufferTexture.Dispose();
-                BackBufferTexture = null;
+                BitmapTexture.Dispose();
+                BitmapTexture = null;
             }
-            if (BackBufferTextureSurface != null)
+
+            if (TextureSurface != null && TextureSurface.Disposed == false)
             {
-                BackBufferTextureSurface.Dispose();
-                BackBufferTextureSurface = null;
+                TextureSurface.Dispose();
+                TextureSurface = null;
             }
-            if (OffscreenSurface != null)
-            {
-                OffscreenSurface.Dispose();
-                OffscreenSurface = null;
-            }
-            if (SpriteBatch != null)
+
+
+            if (SpriteBatch != null && SpriteBatch.Disposed == false)
             {
                 SpriteBatch.Dispose();
                 SpriteBatch = null;
             }
 
-            if (ScreenFont != null)
+            if (ScreenFont != null && ScreenFont.Disposed == false)
             {
                 ScreenFont.Dispose();
                 ScreenFont = null;
@@ -955,7 +1188,7 @@ namespace DxRender
 
         internal int CopyToSurfaceTest()
         {
-            CopyToSurface(buffer, BackBufferTextureSurface);
+            CopyToSurface(buffer, TextureSurface);
             return buffer.Size;
         }
 
@@ -975,6 +1208,18 @@ namespace DxRender
             }
         }
 
+        class FormState
+        {
+            public int Width { get; set; }
+            public int Height { get; set; }
+
+            public FormWindowState WindowState { get; set; }
+            public FormBorderStyle BorderStyle { get; set; }   
+        }
+
+        [System.Runtime.InteropServices.DllImport("User32.dll")]
+        static extern IntPtr GetDC(IntPtr hwnd);
     }
+
 
 }

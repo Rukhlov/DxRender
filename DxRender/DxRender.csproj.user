@@ -7,6 +7,7 @@
     <RemoteDebugMachine>MTSR\Ruhlov@WS33R</RemoteDebugMachine>
     <StartAction>Project</StartAction>
     <StartProgram>\\WS33R\RemoteDebug\DxRender.exe</StartProgram>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
     <RemoteDebugEnabled>false</RemoteDebugEnabled>

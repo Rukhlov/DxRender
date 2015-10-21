@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using System.Drawing;
 using System.Threading;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace DxRender
 {
@@ -54,12 +55,13 @@ namespace DxRender
             else
                 source = new CaptureSource(CaptureDevice, FrameRate, Width, Height);
 
-            RenderControl control = new RenderControl(source, RenderMode)
-            {
-                Dock = DockStyle.Fill
-            };
 
-            Form form = new Form
+            //RenderControl control = new RenderControl(source, RenderMode)
+            //{
+            //    Dock = DockStyle.Fill
+            //};
+
+            RendererForm form = new RendererForm(source, RenderMode)
             {
                 Width = 640,//source.VideoBuffer.Width,
                 Height = 480,//source.VideoBuffer.Height,
@@ -68,15 +70,23 @@ namespace DxRender
             };
 
             
-            form.Controls.Add(control);
+            //form.Controls.Add(control);
 
-            //control.ControlAspectRatio();
+           // RendererBase renderer = new SlimDXRenderer(form.Handle, source);
 
-            form.FormClosing += (o, e) =>
-            {
-                if (source != null)
-                    source.Stop();
-            };
+            //form.FormClosing += (o, e) =>
+            //{
+            //    if (source != null)
+            //        source.Stop();
+            //};
+
+            //form.KeyUp += (o, e) =>
+            //{
+            //    if (e.KeyCode == Keys.R)
+            //        renderer.Execute("ChangeAspectRatio", true);
+            //    if (e.KeyCode == Keys.F)
+            //        renderer.Execute("ChangeFullScreen", true);
+            //};
 
             source.Start();
 
@@ -146,7 +156,7 @@ namespace DxRender
         }
     }
 
-    enum RenderMode
+    public enum RenderMode
     {
         SlimDX = 0,
         GDIPlus = 1,
@@ -207,7 +217,7 @@ namespace DxRender
         }
     }
 
-    interface IFrameSource
+    public interface IFrameSource
     {
         void Start();
         void Pause();
@@ -218,7 +228,7 @@ namespace DxRender
         string Info { get; }
     }
 
-    class FrameReceivedEventArgs : EventArgs
+    public class FrameReceivedEventArgs : EventArgs
     {
         public double SampleTime { get; set; }
         public IntPtr Ptr { get; set; }
@@ -248,5 +258,153 @@ namespace DxRender
         [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
         public static extern bool AllocConsole();
 
+    }
+
+    class GlobalMouse
+    {
+        private static LowLevelMouseProc _proc = HookCallback;
+        private static IntPtr HookID = IntPtr.Zero;
+
+        public static event MouseEventHandler MouseMove;
+        public static event MouseEventHandler MouseDown;
+        public static event MouseEventHandler MouseUp;
+
+        public static event MouseEventHandler MouseWheel;
+
+        private static void OnMouseDown(MouseEventArgs MouseArgs)
+        {
+            if (MouseDown != null)
+                MouseDown(null, MouseArgs);
+        }
+        private static void OnMouseUp(MouseEventArgs MouseArgs)
+        {
+            if (MouseUp != null)
+                MouseUp(null, MouseArgs);
+        }
+        private static void OnMouseMove(MouseEventArgs MouseArgs)
+        {
+            if (MouseMove != null)
+                MouseMove(null, MouseArgs);
+        }
+        private static void OnMouseWheel(MouseEventArgs MouseArgs)
+        {
+            if (MouseWheel != null)
+                MouseWheel(null, MouseArgs);
+        }
+
+
+        public static void Start()
+        {
+            HookID = SetHook(_proc);
+        }
+        public static void Stop()
+        {
+            UnhookWindowsHookEx(HookID);
+        }
+
+
+        private static IntPtr SetHook(LowLevelMouseProc proc)
+        {
+            using (Process curProcess = Process.GetCurrentProcess())
+            using (ProcessModule curModule = curProcess.MainModule)
+            {
+                return SetWindowsHookEx(WH_MOUSE_LL, proc,
+                    GetModuleHandle(curModule.ModuleName), 0);
+            }
+        }
+
+        private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+        private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+        {
+            if (nCode >= 0)
+            {
+                if (MouseMessages.WM_LBUTTONDOWN == (MouseMessages)wParam)
+                {
+                    MSLLHOOKSTRUCT hookStruct = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
+
+                    MouseEventArgs args = new MouseEventArgs(MouseButtons.Left, 0, hookStruct.pt.x, hookStruct.pt.y, 0);
+                    OnMouseDown(args);
+                }
+                if (MouseMessages.WM_LBUTTONUP == (MouseMessages)wParam)
+                {
+                    MSLLHOOKSTRUCT hookStruct = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
+
+
+                    MouseEventArgs args = new MouseEventArgs(MouseButtons.Left, 0, hookStruct.pt.x, hookStruct.pt.y, 0);
+                    OnMouseUp(args);
+                }
+
+                if (MouseMessages.WM_RBUTTONDOWN == (MouseMessages)wParam)
+                {
+                    MSLLHOOKSTRUCT hookStruct = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
+
+                    MouseEventArgs args = new MouseEventArgs(MouseButtons.Right, 0, hookStruct.pt.x, hookStruct.pt.y, 0);
+                    OnMouseDown(args);
+                }
+                if (MouseMessages.WM_RBUTTONUP == (MouseMessages)wParam)
+                {
+                    MSLLHOOKSTRUCT hookStruct = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
+
+
+                    MouseEventArgs args = new MouseEventArgs(MouseButtons.Right, 0, hookStruct.pt.x, hookStruct.pt.y, 0);
+                    OnMouseUp(args);
+                }
+
+                if (MouseMessages.WM_MOUSEMOVE == (MouseMessages)wParam)
+                {
+                    MSLLHOOKSTRUCT HookStruct = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
+
+                    MouseEventArgs args = new MouseEventArgs(MouseButtons.None, 0, HookStruct.pt.x, HookStruct.pt.y, 0);
+                    OnMouseMove(args);
+                }
+            }
+
+            return CallNextHookEx(HookID, nCode, wParam, lParam);
+        }
+
+        private const int WH_MOUSE_LL = 14;
+
+        private enum MouseMessages
+        {
+            WM_LBUTTONDOWN = 0x0201,
+            WM_LBUTTONUP = 0x0202,
+            WM_MOUSEMOVE = 0x0200,
+            WM_MOUSEWHEEL = 0x020A,
+            WM_RBUTTONDOWN = 0x0204,
+            WM_RBUTTONUP = 0x0205
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT
+        {
+            public int x;
+            public int y;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MSLLHOOKSTRUCT
+        {
+            public POINT pt;
+            public uint mouseData;
+            public uint flags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr SetWindowsHookEx(int idHook,
+            LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode,
+            IntPtr wParam, IntPtr lParam);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr GetModuleHandle(string lpModuleName);
     }
 }
