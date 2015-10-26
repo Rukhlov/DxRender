@@ -1028,11 +1028,13 @@ namespace DxRender
                 if (form.WindowState != FormWindowState.Normal)
                     form.WindowState = FormWindowState.Normal;
 
-                //form.Width = AdapterInfo.CurrentDisplayMode.Width;
-                //form.Height = AdapterInfo.CurrentDisplayMode.Height;
-                form.Capture = true;
+                form.Location = new GDI.Point(0, 0);
+                form.Width = AdapterInfo.CurrentDisplayMode.Width;
+                form.Height = AdapterInfo.CurrentDisplayMode.Height;
+                
 
                 form.FormBorderStyle = FormBorderStyle.None;
+                //form.WindowState = FormWindowState.Maximized;
 
                 PresentParams.BackBufferWidth = AdapterInfo.CurrentDisplayMode.Width;
                 PresentParams.BackBufferHeight = AdapterInfo.CurrentDisplayMode.Height;
@@ -1047,7 +1049,7 @@ namespace DxRender
                 //PresentParams.BackBufferWidth = Width;
                 //PresentParams.BackBufferHeight = Height;
 
-                form.Capture = false;
+                //form.Capture = false;
 
                 PresentParams.BackBufferWidth = AdapterInfo.CurrentDisplayMode.Width;
                 PresentParams.BackBufferHeight = AdapterInfo.CurrentDisplayMode.Height;

@@ -197,7 +197,7 @@ namespace DxRender
 
         protected override void OnMouseMove(MouseEventArgs e)
         {
-            if (IsFullScreen == false)
+           // if (IsFullScreen == false)
             {
                 if (e.Button == System.Windows.Forms.MouseButtons.Left)
                 {
