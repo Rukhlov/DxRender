@@ -44,6 +44,10 @@ namespace DxRender
         {
             InitializeComponent();
 
+            //this.MaximizeBox = false;
+            //this.ControlBox = false;
+            //this.ControlBox = false;
+
             SetStyle(ControlStyles.ResizeRedraw, false);
             SetStyle(ControlStyles.Opaque, true);
             SetStyle(ControlStyles.UserPaint, true);
@@ -299,7 +303,7 @@ namespace DxRender
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            Renderer.Draw(false);
+            //Renderer.Draw(false);
         }
         protected override void OnPaintBackground(PaintEventArgs pevent)
         {

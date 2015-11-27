@@ -220,7 +220,7 @@ namespace DxRender
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            Renderer.Draw(false);
+            //Renderer.Draw(false);
         }
         protected override void OnPaintBackground(PaintEventArgs pevent)
         {

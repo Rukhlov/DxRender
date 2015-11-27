@@ -59,6 +59,9 @@ namespace DxRender
 
         private SynchronizationContext ThisContext = null;
 
+
+
+
         private void StartUp()
         {
             Debug.WriteLine("SlimDXRenderer.StartUp()");
@@ -77,7 +80,7 @@ namespace DxRender
             //CreateFlags Flags =  CreateFlags.SoftwareVertexProcessing;
             //CreateFlags Flags = CreateFlags.HardwareVertexProcessing;
             CreateFlags Flags = CreateFlags.Multithreaded | CreateFlags.FpuPreserve | CreateFlags.HardwareVertexProcessing;
-            GraphicDevice = new Device(Direct3D9, AdapterInfo.Adapter, DeviceType.Hardware, OwnerHandle, Flags, PresentParams);
+            GraphicDevice = new Device(Direct3D9, AdapterInfo.Adapter, DeviceType.Hardware, IntPtr.Zero, Flags, PresentParams);
 
             SetRendererState();
 
@@ -94,8 +97,48 @@ namespace DxRender
 
             base.FrameSource.FrameReceived += FrameSource_FrameReceived;
 
+
+            signal = false;
+            noSignalProcessor = NoSignalProcessor().GetEnumerator();
+            UpdateNoSignal();
+
+
+            effect = Effect.FromFile(GraphicDevice, "effects.hlsl", ShaderFlags.Debug);
+            technique = effect.GetTechnique("GrayScale_Technique");
+
+            effect.Technique = technique;
+
+            EffectHandleTexture = effect.GetParameter(null, "_texture");
+            //var descr = effect.GetParameterDescription(EffectHandleTexture);
+
+            effect.SetTexture(EffectHandleTexture, BitmapTexture);
+
+
+
+            //var shaderByteCode = ShaderBytecode.Compile(ShaderTest, "main", "ps_2_0", ShaderFlags.None);
+            //var pixelShader = new PixelShader(GraphicDevice, shaderByteCode);
+
+            //GraphicDevice.PixelShader = pixelShader;
+
+
         }
 
+        EffectHandle EffectHandleTexture = null;
+        Effect effect = null;
+        EffectHandle technique = null;
+
+        private string ShaderTest = @"
+   sampler2D ourImage : register(s0);
+    float4 main(float2 locationInSource : TEXCOORD) : COLOR
+    {
+       float4 color = tex2D( ourImage , locationInSource.xy);
+       color.a = 1;
+	   //color.b = 1;
+	   //color.r = 1;
+	   //color.g = 1;
+       return color;
+    }
+";
 
         private PresentParameters CreatePresentParameters()
         {
@@ -122,7 +165,7 @@ namespace DxRender
             parameters.AutoDepthStencilFormat = Format.D16;
             parameters.Multisample = MultisampleType.None;
             parameters.MultisampleQuality = 0;
-            parameters.PresentationInterval = PresentInterval.Immediate;
+            parameters.PresentationInterval = PresentInterval.Default;
             parameters.PresentFlags = PresentFlags.Video;
 
             return parameters;
@@ -168,7 +211,7 @@ namespace DxRender
             //   graphicDevice.SetRenderState(RenderState.SeparateAlphaBlendEnable, false);
 
             //graphicDevice.SetRenderState(RenderState.ShadeMode, ShadeMode.Flat);
-            GraphicDevice.SetRenderState(RenderState.ShadeMode, ShadeMode.Gouraud);
+            // GraphicDevice.SetRenderState(RenderState.ShadeMode, ShadeMode.Gouraud);
 
             GraphicDevice.SetRenderState(RenderState.SpecularEnable, false);
             GraphicDevice.SetRenderState(RenderState.StencilEnable, false);
@@ -177,6 +220,7 @@ namespace DxRender
             GraphicDevice.SetRenderState(RenderState.ZWriteEnable, false);
         }
 
+        VertexDeclaration VertexDecl = null;
         private void InitializeVertex()
         {
             VertexElement[] VertexElems = new[] {
@@ -184,13 +228,15 @@ namespace DxRender
                 new VertexElement(0, 8, DeclarationType.UByte4N, DeclarationMethod.Default, DeclarationUsage.Color, 0),
                 VertexElement.VertexDeclarationEnd };
 
-            GraphicDevice.VertexDeclaration = new VertexDeclaration(GraphicDevice, VertexElems);
+            VertexDecl = new VertexDeclaration(GraphicDevice, VertexElems);
+            GraphicDevice.VertexDeclaration = VertexDecl;
+
         }
 
         private void InitializeTexture()
         {
 
-            //BackBufferTexture = Texture.FromFile(GraphicDevice, "d:\\01.bmp", Usage.Dynamic, Pool.Default);
+            //BitmapTexture = Texture.FromFile(GraphicDevice, "d:\\01.bmp", Usage.Dynamic, Pool.Default);
 
             // TODO: текстура должна настраиватся в зависимости от размеров и формата битмапа
             BitmapTexture = new Texture(GraphicDevice, Width, Height, 1, Usage.Dynamic, Format.X8R8G8B8, Pool.Default);
@@ -198,19 +244,23 @@ namespace DxRender
             TextureSurface = BitmapTexture.GetSurfaceLevel(0);
         }
 
-
+        volatile bool InDraw = false;
         object locker = new object();
         private void FrameSource_FrameReceived(object sender, FrameReceivedEventArgs e)
         {
+            if (InDraw) return;
             lock (locker)
             {
                 Draw();
                 PerfCounter.UpdateStatistic(e.SampleTime);
+
+                UpdateNoSignal();
             }
         }
 
         public override void Draw(bool UpdateSurface = true)
         {
+            InDraw = true;
             if (GraphicDevice == null) return;
             if (ReDrawing == true) return;
             if (TogglingFullScreen == true) return;
@@ -274,7 +324,42 @@ namespace DxRender
                 {
                     //CopyToSurface(BackBufferTextureSurface, TestBmp, new System.Drawing.Rectangle(0 ,0 , TestBmp.Width, TestBmp.Height)/*this.ClientRectangle*/);
                     CopyToSurface(buffer, TextureSurface);
+
+
+
                 }
+
+
+
+                //SpriteBatch.Begin(SpriteFlags.AlphaBlend);
+
+
+
+                //int nPasses = effect.Begin();
+                //for (int i = 0; i < nPasses; i++)
+                //{
+                //    //effect.SetTexture(hTexture, BitmapTexture);
+
+                //    SpriteBatch.Begin(SpriteFlags.AlphaBlend);
+                //    effect.BeginPass(i);
+
+                //   // var hr = effect.SetTexture(hTexture, BitmapTexture);
+
+                //   //Debug.WriteLine(hr);
+
+                //    //SpriteBatch.Begin(SpriteFlags.AlphaBlend);
+                //    SpriteBatch.Draw(BitmapTexture, new GDI.Rectangle(0, 0, Width, Height), GDI.Color.White);
+
+                //    SpriteBatch.End();
+
+
+                //    effect.EndPass();
+                //}
+                //effect.End();
+
+
+
+
 
                 //SpriteBatch.Begin(SpriteFlags.AlphaBlend);
                 //SpriteBatch.Draw(BackBufferTexture, new GDI.Rectangle(0,0, Width, Height), GDI.Color.White);
@@ -285,61 +370,16 @@ namespace DxRender
 
 
 
+
+                //SpriteBatch.Begin(SpriteFlags.AlphaBlend);
+
+
                 GDI.Rectangle ControlRectangle = IsFullScreen ? BackBufferArea : control.ClientRectangle;
 
                 //Debug.WriteLine(ControlRectangle);
                 //Debug.WriteLine(ViewRectangle);
 
-                //GDI.Rectangle ControlRectangle = control.DisplayRectangle;
-                Matrix Transform = Matrix.Identity;
-
-
-                //if (ControlRectangle.Width != Width || ControlRectangle.Height != Height)
-                {
-                    float ViewRatio = (float)ViewRectangle.Width / ViewRectangle.Height; //(float)Width / Height;
-
-                    float ControlRatio = (float)ControlRectangle.Width / ControlRectangle.Height;
-
-                    if (AspectRatioMode)
-                    {
-                        float ControlScaleX = (float)ControlRectangle.Width / ViewRectangle.Width;
-                        float ControlScaleY = (float)ControlRectangle.Height / ViewRectangle.Height;
-
-                        float TranslationX = 0;
-                        float TranslationY = 0;
-
-                        if (ControlRatio < ViewRatio)
-                        {
-                            ControlScaleX = (float)ControlRectangle.Width / ViewRectangle.Width;
-
-                            float CorrectedControlHeight = (float)ControlRectangle.Width / ViewRatio;
-                            ControlScaleY = (float)CorrectedControlHeight / ViewRectangle.Height;
-
-                            TranslationY = (ControlRectangle.Height - ViewRectangle.Height * ControlScaleY) / 2;
-                        }
-                        else
-                        {
-                            float CorrectedControlWidth = (float)ControlRectangle.Height * ViewRatio;
-
-                            ControlScaleX = CorrectedControlWidth / ViewRectangle.Width;
-
-                            TranslationX = (ControlRectangle.Width - ViewRectangle.Width * ControlScaleX) / 2;
-
-                            ControlScaleY = (float)ControlRectangle.Height / ViewRectangle.Height;
-                        }
-
-                        Transform *= Matrix.Scaling(ControlScaleX, ControlScaleY, 1) * Matrix.Translation(TranslationX, TranslationY, 0);
-                    }
-                    else
-                    {
-                        float ControlScaleX = (float)ControlRectangle.Width / ViewRectangle.Width;
-                        float ControlScaleY = (float)ControlRectangle.Height / ViewRectangle.Height;
-
-                        Transform *= Matrix.Scaling(ControlScaleX, ControlScaleY, 1);
-
-                        //Debug.WriteLine("ControlScaleX = {0} ControlScaleY {1}", ControlScaleX, ControlScaleY);
-                    }
-                }
+                SpriteBatch.Transform = GetViewMatrix(ControlRectangle);
 
                 //if (buffer.UpsideDown)
                 //{// поворачивем изображение на 180 град, со смещением
@@ -348,23 +388,22 @@ namespace DxRender
 
                 //}
 
-                SpriteBatch.Begin(SpriteFlags.AlphaBlend);
 
-                SpriteBatch.Transform = Transform;
+                int nPasses = effect.Begin();
+                for (int i = 0; i < nPasses; i++)
+                {
+                    SpriteBatch.Begin(SpriteFlags.AlphaBlend);
 
-                GDI.Rectangle rect = GDI.Rectangle.Round(ViewRectangle);
-                //rect.Inflate(1, 1);
-                //var rect = new GDI.Rectangle((int)ViewRectangle.X, (int)ViewRectangle.Y, (int)ViewRectangle.Width+1, (int)ViewRectangle.Height+1);
+                    effect.BeginPass(i);
+                    SpriteBatch.Draw(BitmapTexture, GDI.Rectangle.Round(ViewRectangle), GDI.Color.White);
+                    effect.EndPass();
+                    SpriteBatch.End();
+                }
+                effect.End();
 
-                SpriteBatch.Draw(BitmapTexture, rect, GDI.Color.White);
-
-                //SpriteBatch.Draw(BackBufferTexture, new GDI.Rectangle(0,0,Width,Height), GDI.Color.White);
-
-                // возвращаем все как было и рисуем дальше
                 SpriteBatch.Transform = Matrix.Identity;
-
+                SpriteBatch.Begin(SpriteFlags.AlphaBlend);
                 ScreenFont.DrawString(SpriteBatch, PerfCounter.GetReport(), 0, 0, PerfCounter.Styler.Color);
-
                 SpriteBatch.End();
 
                 //SelectionRectangle = new GDI.Rectangle(0, 0, 100, 100);//new GDI.Rectangle(0, 0, 100, 100);
@@ -380,6 +419,9 @@ namespace DxRender
                 //DrawLine(DisplayRectangle.Width / 2, 0, DisplayRectangle.Width / 2, DisplayRectangle.Height, 0xFF0000FF);
                 //DrawLine(0, DisplayRectangle.Height/2, DisplayRectangle.Width , DisplayRectangle.Height/2, 0xFF0000FF);
 
+
+
+
                 GraphicDevice.EndScene();
 
                 if (IsFullScreen)
@@ -390,6 +432,9 @@ namespace DxRender
                 //GraphicDevice.Present(BackBufferArea, BackBufferArea);
 
                 //Thread.Sleep(1000);
+
+
+
             }
             catch (Direct3D9Exception ex)
             {
@@ -418,6 +463,61 @@ namespace DxRender
                 Debug.WriteLine(ex.Message);
             }
             finally { ReDrawing = false; }
+
+            InDraw = false;
+        }
+
+        private Matrix GetViewMatrix(GDI.Rectangle ControlRectangle)
+        {
+            Matrix Transform = Matrix.Identity;
+            //if (ControlRectangle.Width != Width || ControlRectangle.Height != Height)
+            {
+                float ViewRatio = (float)ViewRectangle.Width / ViewRectangle.Height; //(float)Width / Height;
+
+                float ControlRatio = (float)ControlRectangle.Width / ControlRectangle.Height;
+
+                if (AspectRatioMode)
+                {
+                    float ControlScaleX = (float)ControlRectangle.Width / ViewRectangle.Width;
+                    float ControlScaleY = (float)ControlRectangle.Height / ViewRectangle.Height;
+
+                    float TranslationX = 0;
+                    float TranslationY = 0;
+
+                    if (ControlRatio < ViewRatio)
+                    {
+                        ControlScaleX = (float)ControlRectangle.Width / ViewRectangle.Width;
+
+                        float CorrectedControlHeight = (float)ControlRectangle.Width / ViewRatio;
+                        ControlScaleY = (float)CorrectedControlHeight / ViewRectangle.Height;
+
+                        TranslationY = (ControlRectangle.Height - ViewRectangle.Height * ControlScaleY) / 2;
+                    }
+                    else
+                    {
+                        float CorrectedControlWidth = (float)ControlRectangle.Height * ViewRatio;
+
+                        ControlScaleX = CorrectedControlWidth / ViewRectangle.Width;
+
+                        TranslationX = (ControlRectangle.Width - ViewRectangle.Width * ControlScaleX) / 2;
+
+                        ControlScaleY = (float)ControlRectangle.Height / ViewRectangle.Height;
+                    }
+
+                    Transform *= Matrix.Scaling(ControlScaleX, ControlScaleY, 1) * Matrix.Translation(TranslationX, TranslationY, 0);
+                }
+                else
+                {
+                    float ControlScaleX = (float)ControlRectangle.Width / ViewRectangle.Width;
+                    float ControlScaleY = (float)ControlRectangle.Height / ViewRectangle.Height;
+
+                    Transform *= Matrix.Scaling(ControlScaleX, ControlScaleY, 1);
+
+                    //Debug.WriteLine("ControlScaleX = {0} ControlScaleY {1}", ControlScaleX, ControlScaleY);
+                }
+            }
+
+            return Transform;
         }
 
 
@@ -599,7 +699,7 @@ namespace DxRender
 
                 case "ChangeFullScreen":
                     {
-                        
+
                         lock (locker)
                         {
                             ToggleFullScreen();
@@ -612,7 +712,7 @@ namespace DxRender
                     break;
             }
 
-           // Debug.WriteLine(Command);
+            // Debug.WriteLine(Command);
         }
 
 
@@ -1031,7 +1131,7 @@ namespace DxRender
                 form.Location = new GDI.Point(0, 0);
                 form.Width = AdapterInfo.CurrentDisplayMode.Width;
                 form.Height = AdapterInfo.CurrentDisplayMode.Height;
-                
+
 
                 form.FormBorderStyle = FormBorderStyle.None;
                 //form.WindowState = FormWindowState.Maximized;
@@ -1123,6 +1223,12 @@ namespace DxRender
 
             if (ScreenFont != null)
                 ScreenFont.OnLostDevice();
+
+            if (VertexDecl != null && VertexDecl.Disposed == false)
+            {
+                VertexDecl.Dispose();
+                VertexDecl = null;
+            }
         }
 
 
@@ -1185,14 +1291,73 @@ namespace DxRender
                 ScreenFont.Dispose();
                 ScreenFont = null;
             }
-        }
 
+            if (VertexDecl != null && VertexDecl.Disposed == false)
+            {
+                VertexDecl.Dispose();
+                VertexDecl = null;
+            }
+        }
 
         internal int CopyToSurfaceTest()
         {
             CopyToSurface(buffer, TextureSurface);
             return buffer.Size;
         }
+
+        bool signal = false;
+        const long noSignalDelay = 300;
+        const long noSignalTimeout = 2000;
+        const long noSignalTimeoutInitial = 5000;
+        IEnumerator<bool> noSignalProcessor;
+        bool isNoSignal = false;
+
+        private void UpdateNoSignal()
+        {
+            noSignalProcessor.MoveNext();
+            isNoSignal = noSignalProcessor.Current;
+        }
+
+        private IEnumerable<bool> NoSignalProcessor()
+        {
+            var isNoSignal = false;
+            var timer = Stopwatch.StartNew();
+
+            while (signal == false)
+            {
+                if (timer.ElapsedMilliseconds > noSignalTimeoutInitial)
+                {
+                    isNoSignal = true;
+                    timer.Restart();
+                    break;
+                }
+                yield return isNoSignal;
+            }
+
+            while (true)
+            {
+                if (signal)
+                {
+                    //decodeTimes.Enqueue(Stopwatch.GetTimestamp());
+                    if (!isNoSignal)
+                    {
+                        timer.Restart();
+                    }
+                    else if (timer.ElapsedMilliseconds > noSignalDelay)
+                    {
+                        isNoSignal = false;
+                        timer.Restart();
+                    }
+                }
+                else if (!isNoSignal && timer.ElapsedMilliseconds > noSignalTimeout)
+                {
+                    isNoSignal = true;
+                    timer.Restart();
+                }
+                yield return isNoSignal;
+            }
+        }
+
 
         struct Vertex
         {
@@ -1216,7 +1381,7 @@ namespace DxRender
             public int Height { get; set; }
 
             public FormWindowState WindowState { get; set; }
-            public FormBorderStyle BorderStyle { get; set; }   
+            public FormBorderStyle BorderStyle { get; set; }
         }
 
         [System.Runtime.InteropServices.DllImport("User32.dll")]

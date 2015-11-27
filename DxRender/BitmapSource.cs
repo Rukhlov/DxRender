@@ -56,7 +56,7 @@ namespace DxRender
 
                     OnFrameReceived(stopwatch.ElapsedMilliseconds/1000.0);
 
-                    Thread.Sleep(1);
+                    Thread.Sleep(30);
                 }
             });
 
