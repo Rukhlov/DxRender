@@ -16,6 +16,7 @@ sampler_state
 ////////////////////////////////////////////////////
 const float4 g_cf4Luminance = { 0.2125f, 0.7154f, 0.0721f, 0.0f };
 const float g_cfSepiaDepth = 0.15;
+float cBrightness = 1.0;
 ////////////////////////////////////////////////////
 float4 Simple_Proc(float2 _pos: TEXCOORD0) : COLOR0
 {
@@ -100,7 +101,7 @@ float4 Posterize_Proc(float2 _pos: TEXCOORD0) : COLOR0
 ////////////////////////////////////////////////////
 float4 Brightness_Proc(float2 _pos: TEXCOORD0) : COLOR0
 {
-	const float cBrightness = 2.0;
+	//const float cBrightness = 2.0;
 	float4 _color = tex2D( _sampler, _pos);
 	_color.xyz *= cBrightness;
 	return _color;

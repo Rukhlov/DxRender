@@ -104,16 +104,21 @@ namespace DxRender
 
 
             effect = Effect.FromFile(GraphicDevice, "effects.hlsl", ShaderFlags.Debug);
-            technique = effect.GetTechnique("GrayScale_Technique");
+            technique = effect.GetTechnique("Brightness_Technique");
 
             effect.Technique = technique;
 
             EffectHandleTexture = effect.GetParameter(null, "_texture");
+
+            SepiaDepthHandle = effect.GetParameter(null, "g_cfSepiaDepth");
+            BrightnessHandle = effect.GetParameter(null, "cBrightness");
+
+
             //var descr = effect.GetParameterDescription(EffectHandleTexture);
 
             effect.SetTexture(EffectHandleTexture, BitmapTexture);
 
-
+            effect.SetValue<float>(SepiaDepthHandle, 0.1f);
 
             //var shaderByteCode = ShaderBytecode.Compile(ShaderTest, "main", "ps_2_0", ShaderFlags.None);
             //var pixelShader = new PixelShader(GraphicDevice, shaderByteCode);
@@ -123,6 +128,8 @@ namespace DxRender
 
         }
 
+        EffectHandle BrightnessHandle = null;
+        EffectHandle SepiaDepthHandle = null;
         EffectHandle EffectHandleTexture = null;
         Effect effect = null;
         EffectHandle technique = null;
@@ -329,49 +336,12 @@ namespace DxRender
 
                 }
 
-
-
-                //SpriteBatch.Begin(SpriteFlags.AlphaBlend);
-
-
-
-                //int nPasses = effect.Begin();
-                //for (int i = 0; i < nPasses; i++)
-                //{
-                //    //effect.SetTexture(hTexture, BitmapTexture);
-
-                //    SpriteBatch.Begin(SpriteFlags.AlphaBlend);
-                //    effect.BeginPass(i);
-
-                //   // var hr = effect.SetTexture(hTexture, BitmapTexture);
-
-                //   //Debug.WriteLine(hr);
-
-                //    //SpriteBatch.Begin(SpriteFlags.AlphaBlend);
-                //    SpriteBatch.Draw(BitmapTexture, new GDI.Rectangle(0, 0, Width, Height), GDI.Color.White);
-
-                //    SpriteBatch.End();
-
-
-                //    effect.EndPass();
-                //}
-                //effect.End();
-
-
-
-
-
                 //SpriteBatch.Begin(SpriteFlags.AlphaBlend);
                 //SpriteBatch.Draw(BackBufferTexture, new GDI.Rectangle(0,0, Width, Height), GDI.Color.White);
 
                 //SpriteBatch.End();
                 //GraphicDevice.EndScene();
                 //GraphicDevice.Present();
-
-
-
-
-                //SpriteBatch.Begin(SpriteFlags.AlphaBlend);
 
 
                 GDI.Rectangle ControlRectangle = IsFullScreen ? BackBufferArea : control.ClientRectangle;
@@ -708,14 +678,37 @@ namespace DxRender
                         //CahngeFullScreenMode = true;
                     }
                     break;
+
+                case "SetBrightness+":
+                    {
+
+                        lock (locker)
+                        {
+                            Brightness *= 1.1f;
+                            effect.SetValue<float>(BrightnessHandle, Brightness);
+                        }
+                        //CahngeFullScreenMode = true;
+                    }
+                    break;
+                case "SetBrightness-":
+                    {
+
+                        lock (locker)
+                        {
+                            Brightness /= 1.1f;
+                            effect.SetValue<float>(BrightnessHandle, Brightness);
+                        }
+                        //CahngeFullScreenMode = true;
+                    }
+                    break;
                 default:
                     break;
             }
 
             // Debug.WriteLine(Command);
         }
-
-
+        float Brightness = 1;
+        float Sepia = 0.1f;
         public void DrawFilledRectangle(GDI.Rectangle Rectangle, uint Color)
         {
             if (Rectangle.IsEmpty) return;

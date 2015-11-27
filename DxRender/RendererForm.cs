@@ -157,6 +157,12 @@ namespace DxRender
             if (e.KeyCode == Keys.F)
                 Renderer.Execute("ChangeFullScreen", true);
 
+            if (e.KeyCode == Keys.S)
+                Renderer.Execute("SetBrightness+");
+
+            if (e.KeyCode == Keys.A)
+                Renderer.Execute("SetBrightness-");
+
             base.OnKeyUp(e);
         }
 
