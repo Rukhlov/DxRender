@@ -104,21 +104,23 @@ namespace DxRender
 
 
             effect = Effect.FromFile(GraphicDevice, "effects.hlsl", ShaderFlags.Debug);
-            technique = effect.GetTechnique("Brightness_Technique");
+            technique = effect.GetTechnique("ContrastBrightness_Technique");
 
             effect.Technique = technique;
 
             EffectHandleTexture = effect.GetParameter(null, "_texture");
 
             SepiaDepthHandle = effect.GetParameter(null, "g_cfSepiaDepth");
-            BrightnessHandle = effect.GetParameter(null, "cBrightness");
+
+            BrightnessHandle = effect.GetParameter(null, "Brightness");
+            ContrastHandle = effect.GetParameter(null, "Contrast");
 
 
             //var descr = effect.GetParameterDescription(EffectHandleTexture);
 
             effect.SetTexture(EffectHandleTexture, BitmapTexture);
 
-            effect.SetValue<float>(SepiaDepthHandle, 0.1f);
+            //effect.SetValue<float>(SepiaDepthHandle, 0.1f);
 
             //var shaderByteCode = ShaderBytecode.Compile(ShaderTest, "main", "ps_2_0", ShaderFlags.None);
             //var pixelShader = new PixelShader(GraphicDevice, shaderByteCode);
@@ -127,7 +129,7 @@ namespace DxRender
 
 
         }
-
+        EffectHandle ContrastHandle = null;
         EffectHandle BrightnessHandle = null;
         EffectHandle SepiaDepthHandle = null;
         EffectHandle EffectHandleTexture = null;
@@ -701,12 +703,40 @@ namespace DxRender
                         //CahngeFullScreenMode = true;
                     }
                     break;
+
+
+                case "SetContrast+":
+                    {
+
+                        lock (locker)
+                        {
+                            Contrast *= 1.1f;
+                            effect.SetValue<float>(ContrastHandle, Contrast);
+                        }
+                        //CahngeFullScreenMode = true;
+                    }
+                    break;
+                case "SetContrast-":
+                    {
+
+                        lock (locker)
+                        {
+                            Contrast /= 1.1f;
+                            effect.SetValue<float>(ContrastHandle, Contrast);
+                        }
+                        //CahngeFullScreenMode = true;
+                    }
+                    break;
+
+
                 default:
                     break;
             }
 
             // Debug.WriteLine(Command);
         }
+        float Contrast = 1;
+
         float Brightness = 1;
         float Sepia = 0.1f;
         public void DrawFilledRectangle(GDI.Rectangle Rectangle, uint Color)
