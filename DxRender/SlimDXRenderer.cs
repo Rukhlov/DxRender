@@ -103,22 +103,18 @@ namespace DxRender
             UpdateNoSignal();
 
 
-            effect = Effect.FromFile(GraphicDevice, "effects.hlsl", ShaderFlags.Debug);
-            technique = effect.GetTechnique("ContrastBrightness_Technique");
+            effect = Effect.FromFile(GraphicDevice, "effects.hlsl", ShaderFlags.None);
 
-            effect.Technique = technique;
+            effect.Technique = "ContrastBrightness_Technique";
+ 
+            Brightness = effect.GetValue<float>("Brightness");
+            Contrast = effect.GetValue<float>("Contrast");
 
-            EffectHandleTexture = effect.GetParameter(null, "_texture");
-
-            SepiaDepthHandle = effect.GetParameter(null, "g_cfSepiaDepth");
-
-            BrightnessHandle = effect.GetParameter(null, "Brightness");
-            ContrastHandle = effect.GetParameter(null, "Contrast");
-
+            Debug.WriteLine("Brightness = {0} Contrast = {1}", Brightness, Contrast);
 
             //var descr = effect.GetParameterDescription(EffectHandleTexture);
 
-            effect.SetTexture(EffectHandleTexture, BitmapTexture);
+            //effect.SetTexture(EffectHandleTexture, BitmapTexture);
 
             //effect.SetValue<float>(SepiaDepthHandle, 0.1f);
 
@@ -129,12 +125,9 @@ namespace DxRender
 
 
         }
-        EffectHandle ContrastHandle = null;
-        EffectHandle BrightnessHandle = null;
-        EffectHandle SepiaDepthHandle = null;
-        EffectHandle EffectHandleTexture = null;
+
+
         Effect effect = null;
-        EffectHandle technique = null;
 
         private string ShaderTest = @"
    sampler2D ourImage : register(s0);
@@ -369,11 +362,13 @@ namespace DxRender
                     effect.BeginPass(i);
                     SpriteBatch.Draw(BitmapTexture, GDI.Rectangle.Round(ViewRectangle), GDI.Color.White);
                     effect.EndPass();
+
                     SpriteBatch.End();
                 }
                 effect.End();
 
                 SpriteBatch.Transform = Matrix.Identity;
+
                 SpriteBatch.Begin(SpriteFlags.AlphaBlend);
                 ScreenFont.DrawString(SpriteBatch, PerfCounter.GetReport(), 0, 0, PerfCounter.Styler.Color);
                 SpriteBatch.End();
@@ -681,48 +676,24 @@ namespace DxRender
                     }
                     break;
 
-                case "SetBrightness+":
+                case "SetBrightness":
                     {
-
+                        float ratio = (float)Parameters[0];
                         lock (locker)
                         {
-                            Brightness *= 1.1f;
-                            effect.SetValue<float>(BrightnessHandle, Brightness);
+                            Brightness *= ratio;
+                            effect.SetValue<float>("Brightness", Brightness);
                         }
                         //CahngeFullScreenMode = true;
                     }
                     break;
-                case "SetBrightness-":
+                case "SetContrast":
                     {
-
+                        float ratio = (float)Parameters[0];
                         lock (locker)
                         {
-                            Brightness /= 1.1f;
-                            effect.SetValue<float>(BrightnessHandle, Brightness);
-                        }
-                        //CahngeFullScreenMode = true;
-                    }
-                    break;
-
-
-                case "SetContrast+":
-                    {
-
-                        lock (locker)
-                        {
-                            Contrast *= 1.1f;
-                            effect.SetValue<float>(ContrastHandle, Contrast);
-                        }
-                        //CahngeFullScreenMode = true;
-                    }
-                    break;
-                case "SetContrast-":
-                    {
-
-                        lock (locker)
-                        {
-                            Contrast /= 1.1f;
-                            effect.SetValue<float>(ContrastHandle, Contrast);
+                            Contrast *= ratio;
+                            effect.SetValue<float>("Contrast", Contrast);
                         }
                         //CahngeFullScreenMode = true;
                     }

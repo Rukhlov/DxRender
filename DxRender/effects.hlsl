@@ -19,8 +19,8 @@ const float g_cfSepiaDepth = 0.15;
 
 const float cBrightness = 1.0;
 
-const float Brightness = 1.0;
-const float Contrast = 1.0;
+const float Brightness = 0.1;
+const float Contrast = 1;
 
 ////////////////////////////////////////////////////
 float4 Simple_Proc(float2 _pos: TEXCOORD0) : COLOR0
